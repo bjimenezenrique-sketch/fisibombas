@@ -39,8 +39,7 @@ PLAN_BY_ISO = {day["iso"]: day for day in PLAN_DATA}
 RPE, PAIN, NOTES_AND_PHOTO, FINAL = range(4)
 
 def get_today_plan():
-    # today_iso = datetime.now().strftime("%Y-%m-%d")
-    today_iso = "2026-08-24" # MOCK DATE FOR TESTING - Start of plan
+    today_iso = datetime.now().strftime("%Y-%m-%d")
     plan = PLAN_BY_ISO.get(today_iso)
     return plan, today_iso
 
@@ -203,7 +202,9 @@ async def registrar_final(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         response = model.generate_content(contents)
         ai_feedback = response.text
     except Exception as e:
-        print("Error generating AI feedback:", e)
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Error generating AI feedback: {e}\n{error_details}")
         ai_feedback = "Error de conexión con la IA, pero tu sesión se ha guardado correctamente."
         
     database.log_session(
