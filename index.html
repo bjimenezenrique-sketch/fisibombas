@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendario AENA</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #12151a; color: #eef1f4; }
+        .card { background-color: #1b2027; border: 1px solid #333c46; }
+        .accent { color: #ff8a1e; }
+        .btn-accent { background-color: #ff8a1e; color: #1a1206; }
+        
+        /* Modal styles */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
+        .modal.active { display: flex; }
+        .modal-content { background-color: #1b2027; border: 1px solid #333c46; max-height: 90vh; overflow-y: auto; width: 100%; max-width: 500px; border-radius: 1rem; padding: 1.5rem; }
+        
+        .day-box { cursor: pointer; transition: 0.2s; }
+        .day-box:hover { border-color: #ff8a1e; }
+        .has-log-dot { width: 8px; height: 8px; background-color: #43c98d; border-radius: 50%; display: inline-block; }
+        .is-today { border-color: #ff8a1e; border-width: 2px; }
+    </style>
+</head>
+<body class="p-2 md:p-8 font-sans">
+    <div class="max-w-3xl mx-auto space-y-6 pb-20">
+        
+        <!-- Header -->
+        <div class="card rounded-2xl p-5 text-center">
+            <h1 class="text-2xl font-bold uppercase tracking-wide accent">Planificación AENA</h1>
+            <p class="text-gray-400 text-sm mt-1">12 Semanas - Doble Umbral & High-Low</p>
+        </div>
+
+        <!-- QA Section -->
+        <div class="card rounded-2xl p-5">
+            <h2 class="text-lg font-bold mb-3 flex items-center gap-2">💬 Dudas sobre el entreno</h2>
+            <div class="flex gap-2">
+                <input type="text" id="question-input" class="flex-1 bg-[#232a33] border border-[#333c46] rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[#ff8a1e] text-sm" placeholder="Ej: ¿Puedo cambiar las series de 400 por 500 hoy?">
+                <button onclick="askQuestion()" class="btn-accent px-4 py-2 rounded-xl font-bold text-sm">Enviar</button>
+            </div>
+            <div id="chat-box" class="mt-4 space-y-3 max-h-48 overflow-y-auto text-sm hidden">
+                <!-- Chat messages go here -->
+            </div>
+        </div>
+
+        <!-- Calendar Container -->
+        <div>
+            <h2 class="text-xl font-bold mb-4 ml-2">📅 Calendario del Macrociclo</h2>
+            <div id="calendar-container" class="space-y-6">
+                <div class="text-center text-gray-400 py-10">Cargando calendario...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Day Details -->
+    <div id="day-modal" class="modal">
+        <div class="modal-content relative">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">&times;</button>
+            <div id="modal-body">
+                <!-- Content injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        const userId = tg.initDataUnsafe?.user?.id || '123456';
+
+        let planData = [];
+        let recordsDict = {};
+
+        async function init() {
+            try {
+                // Fetch Plan
+                const planRes = await fetch('/api/plan');
+                planData = await planRes.json();
+                
+                // Fetch Records
+                const recordsRes = await fetch(`/api/records?user_id=${userId}`);
+                const rData = await recordsRes.json();
+                
+                // Map records by date
+                rData.records.forEach(r => {
+                    recordsDict[r.date] = r;
+                });
+
+                renderCalendar();
+            } catch (e) {
+                console.error(e);
+                document.getElementById('calendar-container').innerHTML = '<div class="text-red-500">Error cargando datos.</div>';
+            }
+        }
+
+        function getTodayIso() {
+            const d = new Date();
+            const pad = n => String(n).padStart(2,'0');
+            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+        }
+
+        function renderCalendar() {
+            const container = document.getElementById('calendar-container');
+            container.innerHTML = '';
+            
+            const today = getTodayIso();
+            
+            // Group by week
+            const weeks = {};
+            planData.forEach(day => {
+                if(!weeks[day.week]) weeks[day.week] = [];
+                weeks[day.week].push(day);
+            });
+
+            for (const [weekNum, days] of Object.entries(weeks)) {
+                let weekHtml = `
+                    <div class="card rounded-2xl p-4">
+                        <h3 class="font-bold text-gray-400 mb-3 text-sm uppercase tracking-wider">Semana ${weekNum} - Mesociclo ${days[0].mesociclo}</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                `;
+                
+                days.forEach(day => {
+                    const hasRecord = !!recordsDict[day.iso];
+                    const isToday = day.iso === today;
+                    const dateObj = new Date(day.iso);
+                    const dateStr = `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}`;
+                    
+                    const isRest = day.tables.length === 0 && day.notes.length === 0;
+                    const bgClass = isRest ? 'bg-[#12151a] opacity-60' : 'bg-[#232a33]';
+                    
+                    weekHtml += `
+                        <div onclick="openModal('${day.iso}')" class="day-box ${bgClass} border border-[#333c46] ${isToday ? 'is-today' : ''} p-3 rounded-xl relative">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs font-bold text-gray-400">${day.day_name.substring(0,3)} ${dateStr}</span>
+                                ${hasRecord ? '<span class="has-log-dot"></span>' : ''}
+                            </div>
+                            <div class="text-sm font-semibold truncate ${isRest ? 'text-gray-500' : 'text-white'}">${isRest ? 'Descanso' : day.context}</div>
+                        </div>
+                    `;
+                });
+                
+                weekHtml += `</div></div>`;
+                container.innerHTML += weekHtml;
+            }
+        }
+
+        function openModal(isoDate) {
+            const day = planData.find(d => d.iso === isoDate);
+            const record = recordsDict[isoDate];
+            if(!day) return;
+
+            const dateObj = new Date(day.iso);
+            const dateStr = `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}`;
+            
+            let html = `
+                <h2 class="text-xl font-bold accent mb-1">${day.day_name} ${dateStr}</h2>
+                <p class="text-sm text-gray-400 mb-4">${day.context || 'Descanso absoluto'}</p>
+            `;
+
+            // Plan Info
+            if(day.tables.length > 0) {
+                html += `<div class="space-y-4 mb-6">`;
+                day.tables.forEach(table => {
+                    table.rows.forEach(row => {
+                        html += `
+                            <div class="bg-[#232a33] p-3 rounded-lg border border-[#333c46]">
+                                <div class="font-bold text-sm text-white mb-1">${row[0]}</div>
+                        `;
+                        for(let i=1; i<row.length; i++) {
+                            if(row[i] && row[i] !== '—') {
+                                html += `<div class="text-xs text-gray-300"><span class="text-gray-500">${table.header[i]}:</span> ${row[i]}</div>`;
+                            }
+                        }
+                        html += `</div>`;
+                    });
+                });
+                html += `</div>`;
+            }
+
+            if(day.notes.length > 0) {
+                html += `<div class="mb-6 p-3 bg-[#12151a] border border-[#333c46] rounded-lg text-sm text-gray-300">
+                    <span class="font-bold text-gray-500 block mb-1">Notas del plan:</span>
+                    <ul class="list-disc pl-4 space-y-1">
+                        ${day.notes.map(n => `<li>${n}</li>`).join('')}
+                    </ul>
+                </div>`;
+            }
+
+            // Record Info
+            if(record) {
+                html += `
+                    <div class="mt-4 pt-4 border-t border-[#333c46]">
+                        <h3 class="font-bold text-lg mb-3">✅ Tu Registro</h3>
+                        <div class="bg-[#232a33] p-4 rounded-xl">
+                            <p class="text-sm mb-1"><span class="font-bold text-gray-400">Estado:</span> ${record.status}</p>
+                            <p class="text-sm mb-1"><span class="font-bold text-gray-400">RPE:</span> ${record.rpe || 'N/A'}/10</p>
+                            <p class="text-sm mb-1"><span class="font-bold text-gray-400">Molestias:</span> ${record.pain}</p>
+                            ${record.notes && record.notes !== 'Ninguna' ? `<p class="text-sm mt-2 italic text-gray-300">"${record.notes}"</p>` : ''}
+                            
+                            <div class="mt-3 p-3 bg-[#1b2027] border border-[#ff8a1e] border-opacity-30 rounded-lg text-sm">
+                                <span class="font-bold accent block mb-1">🤖 Feedback del Entrenador:</span>
+                                ${record.feedback}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="mt-4 pt-4 border-t border-[#333c46] text-center text-sm text-gray-400">
+                        Aún no has registrado esta sesión.<br>
+                        Usa el comando <b>/registrar</b> en Telegram.
+                    </div>
+                `;
+            }
+
+            document.getElementById('modal-body').innerHTML = html;
+            document.getElementById('day-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('day-modal').classList.remove('active');
+        }
+
+        // Close modal on outside click
+        document.getElementById('day-modal').addEventListener('click', (e) => {
+            if(e.target.id === 'day-modal') closeModal();
+        });
+
+        // Chat functionality
+        async function askQuestion() {
+            const input = document.getElementById('question-input');
+            const question = input.value.trim();
+            if (!question) return;
+
+            const chat = document.getElementById('chat-box');
+            chat.classList.remove('hidden');
+            
+            chat.innerHTML += `<div class="text-right"><span class="inline-block bg-[#ff8a1e] text-[#1a1206] px-3 py-2 rounded-lg">${question}</span></div>`;
+            input.value = '';
+            chat.scrollTop = chat.scrollHeight;
+
+            const loadId = 'loading-' + Date.now();
+            chat.innerHTML += `<div id="${loadId}" class="text-left text-gray-400 mt-2">Pensando...</div>`;
+            chat.scrollTop = chat.scrollHeight;
+
+            try {
+                const res = await fetch('/api/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
+                });
+                const data = await res.json();
+                document.getElementById(loadId).remove();
+                
+                // Format simple markdown (newlines to br, bold)
+                let formatted = data.answer.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                
+                chat.innerHTML += `<div class="text-left"><span class="inline-block bg-[#232a33] px-3 py-2 rounded-lg border border-[#333c46]">${formatted}</span></div>`;
+                chat.scrollTop = chat.scrollHeight;
+            } catch (e) {
+                document.getElementById(loadId).remove();
+                chat.innerHTML += `<div class="text-left text-red-500">Error de conexión.</div>`;
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
