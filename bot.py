@@ -202,7 +202,7 @@ async def registrar_final(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             
         if client:
             response = client.models.generate_content(
-                model='gemini-1.5-pro',
+                model='gemini-2.0-flash',
                 contents=contents
             )
             ai_feedback = response.text
