@@ -1,17 +1,16 @@
 import os
 import sqlite3
 from flask import Flask, request, jsonify, render_template
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 
 # Load environment
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-pro')
+    client = genai.Client(api_key=GEMINI_API_KEY)
 else:
-    model = None
+    client = None
 
 app = Flask(__name__)
 DB_PATH = 'aena_bot.db'
@@ -42,7 +41,7 @@ def ask():
     data = request.json
     question = data.get('question')
     
-    if not model:
+    if not client:
         return jsonify({"answer": "La API de Gemini no está configurada."})
         
     prompt = f"""
@@ -53,10 +52,13 @@ def ask():
     Sé conciso y claro.
     """
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-1.5-pro',
+            contents=prompt
+        )
         return jsonify({"answer": response.text})
     except Exception as e:
-        return jsonify({"answer": "Error procesando tu pregunta."}), 500
+        return jsonify({"answer": f"Error: {e}"}), 500
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)

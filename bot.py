@@ -6,7 +6,7 @@ from PIL import Image
 from dotenv import load_dotenv
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
-import google.generativeai as genai
+from google import genai
 import database
 
 # Load environment variables
@@ -15,9 +15,10 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # Initialize Gemini
-genai.configure(api_key=GEMINI_API_KEY)
-# We use gemini-1.5-pro for deep reasoning and vision tasks
-model = genai.GenerativeModel('gemini-1.5-pro')
+if GEMINI_API_KEY:
+    client = genai.Client(api_key=GEMINI_API_KEY)
+else:
+    client = None
 
 SYSTEM_PROMPT = """
 Actúa como un Preparador Físico de Alto Rendimiento Olímpico y Táctico, especialista en fisiología del ejercicio concurrente (fuerza y resistencia simultáneas) para oposiciones a bomberos de aeropuertos (AENA). 
@@ -199,8 +200,14 @@ async def registrar_final(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             image = Image.open(io.BytesIO(context.user_data['image_bytes']))
             contents.append(image)
             
-        response = model.generate_content(contents)
-        ai_feedback = response.text
+        if client:
+            response = client.models.generate_content(
+                model='gemini-1.5-pro',
+                contents=contents
+            )
+            ai_feedback = response.text
+        else:
+            ai_feedback = "Error: Cliente de Gemini no configurado."
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
