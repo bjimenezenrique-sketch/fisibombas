@@ -3,383 +3,368 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calendario AENA</title>
+    <title>Diario AENA</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #12151a; color: #eef1f4; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: #12151a; color: #eef1f4; font-family: system-ui, sans-serif; }
         .card { background-color: #1b2027; border: 1px solid #333c46; }
         .accent { color: #ff8a1e; }
         .btn-accent { background-color: #ff8a1e; color: #1a1206; font-weight: bold; }
-        
-        /* Nav tabs */
-        .tab-btn { padding: 0.5rem 1rem; border-radius: 0.75rem; font-size: 0.85rem; font-weight: 600; transition: 0.2s; color: #9ca3af; }
+        .tab-btn { padding: 0.5rem 1.1rem; border-radius: 0.75rem; font-size: 0.82rem; font-weight: 600; color: #9ca3af; transition: 0.15s; }
         .tab-btn.active { background-color: #ff8a1e; color: #1a1206; }
-        
-        /* Progress bar */
-        .progress-bar-bg { background-color: #232a33; border-radius: 9999px; height: 10px; overflow: hidden; }
-        .progress-bar-fill { height: 10px; border-radius: 9999px; transition: width 1s ease; }
-        
-        /* Modal */
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
-        .modal.active { display: flex; }
-        .modal-content { background-color: #1b2027; border: 1px solid #333c46; max-height: 90vh; overflow-y: auto; width: 100%; max-width: 500px; border-radius: 1rem; padding: 1.5rem; }
-        
+        .panel { display: none; }
+        .panel.active { display: block; }
+        .pbar-bg { background-color: #232a33; border-radius: 9999px; height: 10px; overflow: hidden; }
+        .pbar-fill { height: 10px; border-radius: 9999px; transition: width 1s ease; }
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
+        .modal-overlay.open { display: flex; }
+        .modal-box { background: #1b2027; border: 1px solid #333c46; max-height: 88vh; overflow-y: auto; width: 100%; max-width: 480px; border-radius: 1rem; padding: 1.25rem; }
         .day-box { cursor: pointer; transition: 0.15s; }
         .day-box:hover { border-color: #ff8a1e !important; }
-        .is-today { border-color: #ff8a1e !important; border-width: 2px; }
-        .has-log { width: 8px; height: 8px; background-color: #43c98d; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+        .today-ring { border-color: #ff8a1e !important; border-width: 2px; }
+        .log-dot { width: 8px; height: 8px; background: #43c98d; border-radius: 50%; display: inline-block; }
     </style>
 </head>
-<body class="pb-20">
-    <!-- Header -->
-    <div class="card border-b border-[#333c46] px-4 py-4 sticky top-0 z-40">
-        <h1 class="text-xl font-bold uppercase tracking-widest accent text-center">Diario AENA</h1>
-        <!-- Nav -->
-        <div class="flex gap-2 justify-center mt-3">
-            <button onclick="showTab('calendar')" id="tab-calendar" class="tab-btn active">📅 Calendario</button>
-            <button onclick="showTab('progress')" id="tab-progress" class="tab-btn">📊 Progreso</button>
-            <button onclick="showTab('ask')" id="tab-ask" class="tab-btn">💬 Dudas</button>
-        </div>
+<body class="pb-24">
+
+<!-- ── HEADER ───────────────────────────────────────────────────────── -->
+<div class="card border-b border-[#333c46] px-4 py-3 sticky top-0 z-40">
+    <h1 class="text-lg font-bold uppercase tracking-widest accent text-center">Diario AENA</h1>
+    <div class="flex gap-2 justify-center mt-2">
+        <button class="tab-btn active" onclick="showTab('cal')">📅 Calendario</button>
+        <button class="tab-btn" onclick="showTab('prog')">📊 Progreso</button>
+        <button class="tab-btn" onclick="showTab('ask')">💬 Dudas</button>
+    </div>
+</div>
+
+<!-- ── PANEL: CALENDAR ───────────────────────────────────────────────── -->
+<div id="panel-cal" class="panel active p-3 space-y-4">
+    <div id="calendar-container">
+        <p class="text-center text-gray-400 py-10">Cargando...</p>
+    </div>
+</div>
+
+<!-- ── PANEL: PROGRESS ───────────────────────────────────────────────── -->
+<div id="panel-prog" class="panel p-3 space-y-4">
+
+    <!-- Info banner -->
+    <div class="card rounded-2xl p-3 text-xs text-gray-400">
+        🤖 = estimado por IA a partir de tus registros &nbsp;|&nbsp; ✅ = marca real guardada
     </div>
 
-    <!-- ── CALENDAR TAB ──────────────────────────────────────────────── -->
-    <div id="tab-calendar" class="p-3 space-y-4">
-        <div id="calendar-container" class="space-y-5">
-            <div class="text-center text-gray-400 py-10">Cargando...</div>
-        </div>
+    <!-- Progress cards -->
+    <div id="progress-cards" class="space-y-3">
+        <p class="text-center text-gray-400 py-6">Pulsa "Calcular" para cargar el progreso.</p>
     </div>
 
-    <!-- ── PROGRESS TAB ──────────────────────────────────────────────── -->
-    <div id="tab-progress" class="p-3 space-y-4 hidden">
-        <div class="card rounded-2xl p-4 text-sm text-gray-400">
-            Las barras con 🤖 son <b class="text-white">estimaciones de la IA</b> basadas en tus registros.<br>
-            Las barras con ✅ son <b class="text-white">marcas reales</b> que has introducido.
+    <button onclick="loadProgress()" class="btn-accent w-full py-2.5 rounded-xl">🔄 Calcular / Actualizar progreso</button>
+
+    <!-- Update mark form -->
+    <div class="card rounded-2xl p-4 space-y-3">
+        <h3 class="font-bold text-white">✏️ Guardar marca real</h3>
+        <select id="mark-test" class="w-full bg-[#232a33] border border-[#333c46] rounded-xl px-3 py-2 text-white text-sm">
+            <option value="60m">60 metros (seg, ej: 8.20)</option>
+            <option value="1500m">1500 metros (seg, ej: 318 = 5:18)</option>
+            <option value="banca_40kg">Banca 40 kg (repeticiones)</option>
+            <option value="dominadas">Dominadas 30s (repeticiones)</option>
+            <option value="flexibilidad">Flexibilidad cajón (cm)</option>
+            <option value="cuerda_6m">Cuerda 6m (segundos)</option>
+        </select>
+        <input type="number" step="0.01" id="mark-value"
+               placeholder="Tu marca actual..."
+               class="w-full bg-[#232a33] border border-[#333c46] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-[#ff8a1e]">
+        <button onclick="saveMark()" class="btn-accent w-full py-2 rounded-xl">Guardar marca</button>
+        <p id="mark-msg" class="text-center text-sm hidden"></p>
+    </div>
+</div>
+
+<!-- ── PANEL: ASK ─────────────────────────────────────────────────────── -->
+<div id="panel-ask" class="panel p-3 space-y-4">
+    <div class="card rounded-2xl p-4">
+        <h2 class="font-bold mb-3 text-white">💬 Pregunta al Preparador</h2>
+        <div id="chat-box" class="min-h-20 max-h-60 overflow-y-auto mb-3 space-y-2 text-sm">
+            <p class="text-gray-500">Escríbeme cualquier duda sobre el plan.</p>
         </div>
-        <div id="progress-container" class="space-y-4">
-            <div class="text-center text-gray-400 py-10">Cargando progreso...</div>
-        </div>
-        <!-- Update mark form -->
-        <div class="card rounded-2xl p-4">
-            <h3 class="font-bold mb-3">✏️ Actualizar una marca real</h3>
-            <div class="space-y-3">
-                <select id="mark-test" class="w-full bg-[#232a33] border border-[#333c46] rounded-xl px-3 py-2 text-white text-sm">
-                    <option value="60m">60 metros (segundos, ej: 8.20)</option>
-                    <option value="1500m">1500 metros (segundos, ej: 320 = 5:20)</option>
-                    <option value="banca_40kg">Banca 40 kg (repeticiones)</option>
-                    <option value="dominadas">Dominadas 30s (repeticiones)</option>
-                    <option value="flexibilidad">Flexibilidad cajón (centímetros)</option>
-                    <option value="cuerda_6m">Cuerda 6m (segundos)</option>
-                </select>
-                <input type="number" step="0.01" id="mark-value" placeholder="Introduce tu marca..." class="w-full bg-[#232a33] border border-[#333c46] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-[#ff8a1e]">
-                <button onclick="saveMark()" class="btn-accent w-full py-2 rounded-xl">Guardar marca</button>
-                <div id="mark-msg" class="text-center text-sm hidden"></div>
-            </div>
+        <div class="flex gap-2">
+            <input type="text" id="q-input"
+                   placeholder="Tu duda..."
+                   class="flex-1 bg-[#232a33] border border-[#333c46] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-[#ff8a1e]">
+            <button onclick="askQuestion()" class="btn-accent px-4 py-2 rounded-xl">→</button>
         </div>
     </div>
+</div>
 
-    <!-- ── ASK TAB ───────────────────────────────────────────────────── -->
-    <div id="tab-ask" class="p-3 space-y-4 hidden">
-        <div class="card rounded-2xl p-4">
-            <h2 class="font-bold mb-3">💬 Pregunta al Preparador</h2>
-            <div id="chat-box" class="min-h-24 max-h-64 overflow-y-auto mb-3 space-y-3 text-sm">
-                <div class="text-gray-400 text-sm">Pregúntame cualquier duda sobre el plan o tus entrenos de hoy.</div>
-            </div>
-            <div class="flex gap-2">
-                <input type="text" id="question-input" class="flex-1 bg-[#232a33] border border-[#333c46] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-[#ff8a1e]" placeholder="Escribe tu duda...">
-                <button onclick="askQuestion()" class="btn-accent px-4 py-2 rounded-xl">→</button>
-            </div>
-        </div>
+<!-- ── DAY MODAL ──────────────────────────────────────────────────────── -->
+<div id="day-modal" class="modal-overlay">
+    <div class="modal-box relative">
+        <button onclick="closeModal()" class="absolute top-3 right-4 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+        <div id="modal-body"></div>
     </div>
+</div>
 
-    <!-- ── DAY DETAIL MODAL ──────────────────────────────────────────── -->
-    <div id="day-modal" class="modal">
-        <div class="modal-content relative">
-            <button onclick="closeModal()" class="absolute top-3 right-4 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
-            <div id="modal-body"></div>
-        </div>
-    </div>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+// ─── Bootstrap ────────────────────────────────────────────────────────
+const tg = window.Telegram?.WebApp;
+if (tg) tg.expand();
+const userId = tg?.initDataUnsafe?.user?.id || '123456';
 
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script>
-        const tg = window.Telegram?.WebApp;
-        if (tg) tg.expand();
-        const userId = tg?.initDataUnsafe?.user?.id || '123456';
+let planData = [];
+let recordsDict = {};
 
-        let planData = [];
-        let recordsDict = {};
-        let progressData = {};
+// ─── Tab navigation ───────────────────────────────────────────────────
+function showTab(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    // Activate matching button (3rd arg = case sensitive)
+    const btn = [...document.querySelectorAll('.tab-btn')].find(b => b.getAttribute('onclick') === `showTab('${name}')`);
+    if (btn) btn.classList.add('active');
+}
 
-        // ── Tab navigation ────────────────────────────────────────────
-        function showTab(name) {
-            ['calendar', 'progress', 'ask'].forEach(t => {
-                document.getElementById('tab-' + t).classList.add('hidden');
-                document.getElementById('tab-' + t).classList.remove('active');
-            });
-            // Show correct content div
-            document.querySelectorAll('[id^="tab-"]').forEach(el => {
-                if (el.tagName !== 'BUTTON') el.classList.add('hidden');
-            });
-            document.getElementById('tab-' + name).classList.remove('hidden');
-            // Activate correct button
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('tab-' + name).classList.add('active');
+// ─── Init ─────────────────────────────────────────────────────────────
+async function init() {
+    try {
+        const [pr, rr] = await Promise.all([
+            fetch('/api/plan'),
+            fetch('/api/records?user_id=' + userId)
+        ]);
+        planData = await pr.json();
+        const rd = await rr.json();
+        (rd.records || []).forEach(r => { recordsDict[r.date] = r; });
+        renderCalendar();
+    } catch(e) {
+        document.getElementById('calendar-container').innerHTML =
+            '<p class="text-red-400 text-center py-8">Error cargando datos.</p>';
+    }
+}
 
-            if (name === 'progress' && Object.keys(progressData).length === 0) loadProgress();
-        }
+// ─── Calendar ─────────────────────────────────────────────────────────
+function todayIso() {
+    const d = new Date();
+    const p = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
 
-        // ── Init ──────────────────────────────────────────────────────
-        async function init() {
-            try {
-                const [planRes, recordsRes] = await Promise.all([
-                    fetch('/api/plan'),
-                    fetch(`/api/records?user_id=${userId}`)
-                ]);
-                planData = await planRes.json();
-                const rData = await recordsRes.json();
-                rData.records.forEach(r => { recordsDict[r.date] = r; });
-                renderCalendar();
-            } catch(e) {
-                document.getElementById('calendar-container').innerHTML = '<div class="text-red-400 text-center">Error cargando datos.</div>';
-            }
-        }
+function renderCalendar() {
+    const container = document.getElementById('calendar-container');
+    const today = todayIso();
+    const weeks = {};
+    planData.forEach(day => {
+        (weeks[day.week] = weeks[day.week] || []).push(day);
+    });
+    let html = '';
+    for (const [wk, days] of Object.entries(weeks)) {
+        html += `<div class="card rounded-2xl p-3 mb-4">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                Semana ${wk} · Mesociclo ${days[0].mesociclo}
+            </p>
+            <div class="grid grid-cols-2 gap-2">`;
+        days.forEach(day => {
+            const hasRec  = !!recordsDict[day.iso];
+            const isToday = day.iso === today;
+            const isRest  = !day.tables.length && !day.notes.length;
+            const d = new Date(day.iso + 'T00:00:00');
+            const lbl = `${d.toLocaleDateString('es',{weekday:'short'})} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+            html += `
+            <div onclick="openModal('${day.iso}')"
+                 class="day-box border rounded-xl p-2.5
+                        ${isToday ? 'today-ring' : 'border-[#333c46]'}
+                        ${isRest  ? 'opacity-50 bg-[#12151a]' : 'bg-[#232a33]'}">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-bold text-gray-400">${lbl}</span>
+                    ${hasRec ? '<span class="log-dot"></span>' : ''}
+                </div>
+                <div class="text-xs font-semibold truncate ${isRest ? 'text-gray-500' : 'text-white'}">
+                    ${isRest ? 'Descanso' : day.context}
+                </div>
+            </div>`;
+        });
+        html += '</div></div>';
+    }
+    container.innerHTML = html;
+}
 
-        // ── Calendar ──────────────────────────────────────────────────
-        function getTodayIso() {
-            const d = new Date();
-            const p = n => String(n).padStart(2, '0');
-            return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
-        }
+// ─── Day modal ────────────────────────────────────────────────────────
+function openModal(iso) {
+    const day = planData.find(d => d.iso === iso);
+    const rec = recordsDict[iso];
+    if (!day) return;
 
-        function renderCalendar() {
-            const container = document.getElementById('calendar-container');
-            container.innerHTML = '';
-            const today = getTodayIso();
-            const weeks = {};
-            planData.forEach(day => {
-                if (!weeks[day.week]) weeks[day.week] = [];
-                weeks[day.week].push(day);
-            });
-            for (const [weekNum, days] of Object.entries(weeks)) {
-                let html = `<div class="card rounded-2xl p-3">
-                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Semana ${weekNum} · Mesociclo ${days[0].mesociclo}</p>
-                    <div class="grid grid-cols-2 gap-2">`;
-                days.forEach(day => {
-                    const hasRec = !!recordsDict[day.iso];
-                    const isToday = day.iso === today;
-                    const isRest = !day.tables.length && !day.notes.length;
-                    const d = new Date(day.iso + 'T00:00:00');
-                    const label = `${d.toLocaleDateString('es', {weekday:'short'})} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
-                    html += `<div onclick="openModal('${day.iso}')" class="day-box border rounded-xl p-2.5 ${isToday ? 'is-today' : 'border-[#333c46]'} ${isRest ? 'opacity-50 bg-[#12151a]' : 'bg-[#232a33]'}">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="text-xs font-bold text-gray-400">${label}</span>
-                            ${hasRec ? '<span class="has-log"></span>' : ''}
-                        </div>
-                        <div class="text-xs font-semibold truncate ${isRest ? 'text-gray-500' : 'text-white'}">${isRest ? 'Descanso' : day.context}</div>
-                    </div>`;
-                });
-                html += `</div></div>`;
-                container.innerHTML += html;
-            }
-        }
+    const d = new Date(iso + 'T00:00:00');
+    const dateStr = d.toLocaleDateString('es', {weekday:'long', day:'2-digit', month:'long'});
 
-        function openModal(iso) {
-            const day = planData.find(d => d.iso === iso);
-            const rec = recordsDict[iso];
-            if (!day) return;
-            const d = new Date(iso + 'T00:00:00');
-            const dateStr = d.toLocaleDateString('es', {weekday:'long', day:'2-digit', month:'long'});
-            let html = `<h2 class="text-lg font-bold accent mb-0.5 capitalize">${dateStr}</h2>
+    let html = `<h2 class="text-base font-bold accent mb-0.5 capitalize">${dateStr}</h2>
                 <p class="text-sm text-gray-400 mb-4">${day.context || 'Descanso absoluto'}</p>`;
 
-            if (day.tables.length) {
-                html += '<div class="space-y-2 mb-4">';
-                day.tables.forEach(table => {
-                    table.rows.forEach(row => {
-                        html += `<div class="bg-[#232a33] p-2.5 rounded-lg border border-[#333c46]">
-                            <p class="font-semibold text-sm text-white mb-1">${row[0]}</p>`;
-                        for (let i = 1; i < row.length; i++) {
-                            if (row[i] && row[i] !== '—') {
-                                html += `<p class="text-xs text-gray-300"><span class="text-gray-500">${table.header[i]}:</span> ${row[i]}</p>`;
-                            }
-                        }
-                        html += '</div>';
-                    });
-                });
-                html += '</div>';
+    day.tables.forEach(table => {
+        table.rows.forEach(row => {
+            html += `<div class="bg-[#232a33] p-2.5 rounded-lg border border-[#333c46] mb-2">
+                <p class="font-semibold text-sm text-white mb-1">${row[0]}</p>`;
+            for (let i = 1; i < row.length; i++) {
+                if (row[i] && row[i] !== '—')
+                    html += `<p class="text-xs text-gray-300"><span class="text-gray-500">${table.header[i]}:</span> ${row[i]}</p>`;
             }
-            if (day.notes.length) {
-                html += `<div class="mb-4 p-3 bg-[#12151a] border border-[#333c46] rounded-lg text-xs text-gray-300">
-                    <p class="font-bold text-gray-500 mb-1">Notas del plan</p>
-                    ${day.notes.map(n => `<p>• ${n}</p>`).join('')}</div>`;
-            }
-
-            if (rec) {
-                html += `<div class="pt-4 border-t border-[#333c46]">
-                    <h3 class="font-bold mb-2">✅ Tu Registro</h3>
-                    <div class="bg-[#232a33] p-3 rounded-xl space-y-1 text-sm">
-                        <p><span class="text-gray-400">Estado:</span> ${rec.status}</p>
-                        <p><span class="text-gray-400">RPE:</span> ${rec.rpe ?? 'N/A'}/10</p>
-                        <p><span class="text-gray-400">Molestias:</span> ${rec.pain}</p>
-                        ${rec.notes && rec.notes !== 'Ninguna' ? `<p class="italic text-gray-300">"${rec.notes}"</p>` : ''}
-                        <div class="mt-2 p-2.5 bg-[#1b2027] border border-[#ff8a1e] border-opacity-30 rounded-lg text-xs">
-                            <p class="accent font-bold mb-1">🤖 Feedback del Preparador</p>
-                            <p>${rec.feedback}</p>
-                        </div>
-                    </div>
-                </div>`;
-            } else {
-                html += `<div class="pt-4 border-t border-[#333c46] text-center text-sm text-gray-400">
-                    Sin registro aún.<br>Usa <b>/registrar</b> o <b>/registrar_dia</b> en Telegram.</div>`;
-            }
-            document.getElementById('modal-body').innerHTML = html;
-            document.getElementById('day-modal').classList.add('active');
-        }
-
-        function closeModal() {
-            document.getElementById('day-modal').classList.remove('active');
-        }
-        document.getElementById('day-modal').addEventListener('click', e => {
-            if (e.target.id === 'day-modal') closeModal();
+            html += '</div>';
         });
+    });
 
-        // ── Progress ──────────────────────────────────────────────────
-        async function loadProgress() {
-            const container = document.getElementById('progress-container');
-            container.innerHTML = '<div class="text-center text-gray-400">Calculando progreso con IA...</div>';
-            try {
-                const res = await fetch(`/api/progress?user_id=${userId}`);
-                progressData = await res.json();
-                renderProgress();
-            } catch(e) {
-                container.innerHTML = '<div class="text-red-400">Error calculando progreso.</div>';
-            }
-        }
+    if (day.notes.length) {
+        html += `<div class="mb-4 p-3 bg-[#12151a] border border-[#333c46] rounded-lg">
+            <p class="text-xs font-bold text-gray-500 mb-1">Notas del plan</p>
+            ${day.notes.map(n => `<p class="text-xs text-gray-300">• ${n}</p>`).join('')}
+        </div>`;
+    }
 
-        function renderProgress() {
-            const container = document.getElementById('progress-container');
-            container.innerHTML = '';
-            const colorMap = {
-                low: '#ef4444', mid: '#f59e0b', good: '#43c98d', great: '#22d3ee'
-            };
-            for (const [key, t] of Object.entries(progressData)) {
-                const pct = t.pct ?? 0;
-                const color = pct < 30 ? colorMap.low : pct < 60 ? colorMap.mid : pct < 85 ? colorMap.good : colorMap.great;
-                const isEstimated = t.status === 'estimated';
-                const statusLabel = isEstimated ? '🤖 Estimado por IA' : '✅ Marca real';
-                const currentLabel = t.current !== null
-                    ? `${t.lower_is_better ? '⏱' : '💪'} Actual: <b>${t.unit === 's' && t.current > 60 ? fmtTime(t.current) : t.current} ${t.unit}</b>`
-                    : '(Sin marca guardada)';
-                const goalLabel = t.unit === 's' && t.goal > 60 ? fmtTime(t.goal) : t.goal;
-                const startLabel = t.unit === 's' && t.start > 60 ? fmtTime(t.start) : t.start;
+    if (rec) {
+        html += `<div class="pt-4 border-t border-[#333c46]">
+            <h3 class="font-bold mb-2 text-white">✅ Tu registro</h3>
+            <div class="bg-[#232a33] p-3 rounded-xl space-y-1 text-sm">
+                <p><span class="text-gray-400">Estado:</span> ${rec.status}</p>
+                <p><span class="text-gray-400">RPE:</span> ${rec.rpe ?? 'N/A'}/10</p>
+                <p><span class="text-gray-400">Molestias:</span> ${rec.pain}</p>
+                ${rec.notes && rec.notes !== 'Ninguna' ? `<p class="italic text-gray-300 text-xs">"${rec.notes}"</p>` : ''}
+                <div class="mt-2 p-2.5 bg-[#1b2027] border border-[#ff8a1e30] rounded-lg text-xs">
+                    <p class="accent font-bold mb-1">🤖 Feedback del Preparador</p>
+                    <p>${rec.feedback || '—'}</p>
+                </div>
+            </div>
+        </div>`;
+    } else {
+        html += `<div class="pt-4 border-t border-[#333c46] text-center text-sm text-gray-400">
+            Sin registro.<br>Usa <b>/registrar</b> o <b>/registrar_dia</b> en Telegram.
+        </div>`;
+    }
 
-                container.innerHTML += `
-                <div class="card rounded-2xl p-4">
-                    <div class="flex justify-between items-start mb-2">
-                        <div>
-                            <h3 class="font-bold text-white">${t.label}</h3>
-                            <p class="text-xs text-gray-400">${startLabel} → <b class="text-white">${goalLabel} ${t.unit}</b></p>
-                        </div>
-                        <span class="text-xs px-2 py-1 rounded-full bg-[#232a33] text-gray-400">${statusLabel}</span>
-                    </div>
-                    <div class="flex items-center gap-3 mb-2">
-                        <div class="flex-1 progress-bar-bg">
-                            <div class="progress-bar-fill" style="width:${pct}%; background:${color};"></div>
-                        </div>
-                        <span class="text-lg font-bold" style="color:${color}; min-width:3rem; text-align:right">${pct}%</span>
-                    </div>
-                    <p class="text-xs text-gray-400">${currentLabel}</p>
-                    ${t.last_updated ? `<p class="text-xs text-gray-600 mt-1">Actualizado: ${t.last_updated.slice(0,10)}</p>` : ''}
-                </div>`;
-            }
-        }
+    document.getElementById('modal-body').innerHTML = html;
+    document.getElementById('day-modal').classList.add('open');
+}
 
-        function fmtTime(secs) {
-            const m = Math.floor(secs / 60);
-            const s = Math.round(secs % 60);
-            return `${m}:${String(s).padStart(2,'0')}`;
-        }
+function closeModal() {
+    document.getElementById('day-modal').classList.remove('open');
+}
+document.getElementById('day-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('day-modal')) closeModal();
+});
 
-        async function saveMark() {
-            const test = document.getElementById('mark-test').value;
-            const value = parseFloat(document.getElementById('mark-value').value);
-            const msg = document.getElementById('mark-msg');
-            if (isNaN(value)) {
-                msg.className = 'text-center text-sm text-red-400';
-                msg.textContent = 'Introduce un número válido.';
-                msg.classList.remove('hidden');
-                return;
-            }
-            try {
-                await fetch('/api/mark', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, test_name: test, value })
-                });
-                msg.className = 'text-center text-sm text-green-400';
-                msg.textContent = '✅ Marca guardada. Recalculando...';
-                msg.classList.remove('hidden');
-                document.getElementById('mark-value').value = '';
-                progressData = {};
-                await loadProgress();
-            } catch(e) {
-                msg.className = 'text-center text-sm text-red-400';
-                msg.textContent = 'Error guardando. Inténtalo de nuevo.';
-                msg.classList.remove('hidden');
-            }
-        }
+// ─── Progress ─────────────────────────────────────────────────────────
+async function loadProgress() {
+    const cards = document.getElementById('progress-cards');
+    cards.innerHTML = '<p class="text-center text-gray-400 py-4">Calculando con IA... puede tardar unos segundos ⏳</p>';
 
-        // ── Ask ───────────────────────────────────────────────────────
-        async function askQuestion() {
-            const input = document.getElementById('question-input');
-            const question = input.value.trim();
-            if (!question) return;
-            const chat = document.getElementById('chat-box');
-            chat.innerHTML += `<div class="text-right"><span class="inline-block bg-[#ff8a1e] text-[#1a1206] px-3 py-1.5 rounded-lg text-sm">${question}</span></div>`;
-            input.value = '';
-            const lid = 'l' + Date.now();
-            chat.innerHTML += `<div id="${lid}" class="text-gray-500 text-sm">Pensando...</div>`;
-            chat.scrollTop = chat.scrollHeight;
-            try {
-                const res = await fetch('/api/ask', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question })
-                });
-                const data = await res.json();
-                document.getElementById(lid).remove();
-                const formatted = data.answer.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-                chat.innerHTML += `<div class="text-left"><span class="inline-block bg-[#232a33] border border-[#333c46] px-3 py-1.5 rounded-lg text-sm">${formatted}</span></div>`;
-                chat.scrollTop = chat.scrollHeight;
-            } catch(e) {
-                document.getElementById(lid).remove();
-                chat.innerHTML += `<div class="text-red-400 text-sm">Error de conexión.</div>`;
-            }
-        }
+    try {
+        const res = await fetch('/api/progress?user_id=' + userId);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        renderProgress(data);
+    } catch(e) {
+        cards.innerHTML = `<p class="text-red-400 text-center py-4">Error: ${e.message}. Inténtalo de nuevo.</p>`;
+    }
+}
 
-        document.getElementById('question-input').addEventListener('keydown', e => {
-            if (e.key === 'Enter') askQuestion();
+function fmtTime(secs) {
+    const m = Math.floor(secs / 60), s = Math.round(secs % 60);
+    return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function fmtVal(val, unit, lowBetter) {
+    if (val === null || val === undefined) return '—';
+    if (unit === 's' && val > 60) return fmtTime(val) + ' min';
+    return val + ' ' + unit;
+}
+
+function renderProgress(data) {
+    const cards = document.getElementById('progress-cards');
+    const colorOf = pct => pct < 30 ? '#ef4444' : pct < 60 ? '#f59e0b' : pct < 85 ? '#43c98d' : '#22d3ee';
+    let html = '';
+    for (const [key, t] of Object.entries(data)) {
+        const pct = t.pct ?? 0;
+        const color = colorOf(pct);
+        const badge = t.status === 'estimated' ? '🤖 IA' : '✅ Real';
+        const startLabel = fmtVal(t.start, t.unit, t.lower_is_better);
+        const goalLabel  = fmtVal(t.goal,  t.unit, t.lower_is_better);
+        const currLabel  = t.current !== null ? fmtVal(t.current, t.unit, t.lower_is_better) : '(sin marca)';
+        html += `
+        <div class="card rounded-2xl p-4">
+            <div class="flex justify-between items-start mb-2">
+                <div>
+                    <h3 class="font-bold text-white text-sm">${t.label}</h3>
+                    <p class="text-xs text-gray-400">Inicio: ${startLabel} → Objetivo: <b class="text-white">${goalLabel}</b></p>
+                </div>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-[#232a33] text-gray-400 shrink-0 ml-2">${badge}</span>
+            </div>
+            <div class="flex items-center gap-3 mb-1">
+                <div class="flex-1 pbar-bg">
+                    <div class="pbar-fill" style="width:${pct}%; background:${color};"></div>
+                </div>
+                <span class="text-base font-bold shrink-0" style="color:${color}; min-width:3rem; text-align:right">${pct}%</span>
+            </div>
+            <p class="text-xs text-gray-400">Actual: <b class="text-white">${currLabel}</b>
+               ${t.last_updated ? `<span class="text-gray-600 ml-2">${t.last_updated.slice(0,10)}</span>` : ''}
+            </p>
+        </div>`;
+    }
+    cards.innerHTML = html || '<p class="text-gray-400 text-center">Sin datos.</p>';
+}
+
+async function saveMark() {
+    const test  = document.getElementById('mark-test').value;
+    const value = parseFloat(document.getElementById('mark-value').value);
+    const msg   = document.getElementById('mark-msg');
+
+    if (isNaN(value)) {
+        msg.className = 'text-center text-sm text-red-400'; msg.textContent = 'Introduce un número válido.'; msg.classList.remove('hidden'); return;
+    }
+    try {
+        const res = await fetch('/api/mark', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, test_name: test, value })
         });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        msg.className = 'text-center text-sm text-green-400';
+        msg.textContent = '✅ Marca guardada. Pulsa "Calcular" para ver el progreso actualizado.';
+        msg.classList.remove('hidden');
+        document.getElementById('mark-value').value = '';
+    } catch(e) {
+        msg.className = 'text-center text-sm text-red-400';
+        msg.textContent = 'Error al guardar: ' + e.message;
+        msg.classList.remove('hidden');
+    }
+}
 
-        // Fix showTab for content divs (not buttons)
-        function showTab(name) {
-            const tabs = ['calendar', 'progress', 'ask'];
-            tabs.forEach(t => {
-                const content = document.getElementById(`tab-${t}`);
-                const btn = document.getElementById(`tab-${t}`);
-                // content divs don't have the same id as buttons, we need different selectors
-            });
-            // Content sections
-            document.getElementById('tab-calendar').classList.add('hidden');
-            document.getElementById('tab-progress').classList.add('hidden');
-            document.getElementById('tab-ask').classList.add('hidden');
-            document.getElementById('tab-' + name).classList.remove('hidden');
-            // Buttons
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelector(`[onclick="showTab('${name}')"]`).classList.add('active');
-            if (name === 'progress' && Object.keys(progressData).length === 0) loadProgress();
-        }
+// ─── Ask ──────────────────────────────────────────────────────────────
+async function askQuestion() {
+    const input = document.getElementById('q-input');
+    const q = input.value.trim();
+    if (!q) return;
 
-        init();
-    </script>
+    const chat = document.getElementById('chat-box');
+    chat.innerHTML += `<div class="text-right"><span class="inline-block bg-[#ff8a1e] text-[#1a1206] px-3 py-1.5 rounded-lg text-sm">${q}</span></div>`;
+    input.value = '';
+    const lid = 'l' + Date.now();
+    chat.innerHTML += `<div id="${lid}" class="text-gray-500 text-sm italic">Pensando...</div>`;
+    chat.scrollTop = chat.scrollHeight;
+
+    try {
+        const res = await fetch('/api/ask', {
+            method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ question: q })
+        });
+        const data = await res.json();
+        document.getElementById(lid)?.remove();
+        const formatted = (data.answer || 'Sin respuesta').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
+        chat.innerHTML += `<div class="text-left"><span class="inline-block bg-[#232a33] border border-[#333c46] px-3 py-1.5 rounded-lg text-sm">${formatted}</span></div>`;
+    } catch(e) {
+        document.getElementById(lid)?.remove();
+        chat.innerHTML += `<div class="text-red-400 text-sm">Error de conexión.</div>`;
+    }
+    chat.scrollTop = chat.scrollHeight;
+}
+
+document.getElementById('q-input').addEventListener('keydown', e => { if (e.key === 'Enter') askQuestion(); });
+
+// ─── Start ────────────────────────────────────────────────────────────
+init();
+</script>
 </body>
 </html>
