@@ -49,6 +49,17 @@ def init_db():
                 UNIQUE(user_id, test_name)
             )
         ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS targets (
+                id SERIAL PRIMARY KEY,
+                user_id BIGINT,
+                test_name TEXT,
+                start_value REAL,
+                goal_value REAL,
+                updated_at TIMESTAMP,
+                UNIQUE(user_id, test_name)
+            )
+        ''')
     else:
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
@@ -79,6 +90,17 @@ def init_db():
                 test_name TEXT,
                 value REAL,
                 logged_at TIMESTAMP,
+                UNIQUE(user_id, test_name)
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS targets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                test_name TEXT,
+                start_value REAL,
+                goal_value REAL,
+                updated_at TIMESTAMP,
                 UNIQUE(user_id, test_name)
             )
         ''')
@@ -214,6 +236,41 @@ def get_marks(user_id):
     cursor.close()
     conn.close()
     return {r[0]: {"value": r[1], "updated": str(r[2])} for r in rows}
+
+def save_target(user_id, test_name, start_value, goal_value):
+    """Save or update custom start/goal for a test."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    if DB_URL:
+        cursor.execute('''
+            INSERT INTO targets (user_id, test_name, start_value, goal_value, updated_at)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (user_id, test_name) DO UPDATE SET start_value=%s, goal_value=%s, updated_at=%s
+        ''', (user_id, test_name, start_value, goal_value, datetime.now(),
+              start_value, goal_value, datetime.now()))
+    else:
+        cursor.execute('''
+            INSERT INTO targets (user_id, test_name, start_value, goal_value, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (user_id, test_name) DO UPDATE SET start_value=?, goal_value=?, updated_at=?
+        ''', (user_id, test_name, start_value, goal_value, datetime.now(),
+              start_value, goal_value, datetime.now()))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def get_targets(user_id):
+    """Get all custom targets for a user. Returns {test_name: {start, goal}}"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    if DB_URL:
+        cursor.execute('SELECT test_name, start_value, goal_value FROM targets WHERE user_id=%s', (user_id,))
+    else:
+        cursor.execute('SELECT test_name, start_value, goal_value FROM targets WHERE user_id=?', (user_id,))
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return {r[0]: {"start": r[1], "goal": r[2]} for r in rows}
 
 if __name__ == '__main__':
     init_db()

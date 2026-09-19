@@ -76,7 +76,40 @@
         <button onclick="saveMark()" class="btn-accent w-full py-2 rounded-xl">Guardar marca</button>
         <p id="mark-msg" class="text-center text-sm hidden"></p>
     </div>
-</div>
+
+    <!-- Edit targets form -->
+    <div class="card rounded-2xl p-4 space-y-3">
+        <button onclick="toggleTargetForm()" class="w-full flex justify-between items-center text-left">
+            <h3 class="font-bold text-white">⚙️ Editar inicio y objetivo</h3>
+            <span id="target-toggle-icon" class="text-gray-400 text-lg">▼</span>
+        </button>
+        <div id="target-form" class="hidden space-y-3 pt-1 border-t border-[#333c46]">
+            <p class="text-xs text-gray-400">Cambia el valor de inicio (tu marca del primer día) o el objetivo final de cada prueba.</p>
+            <select id="target-test" onchange="loadTargetValues()"
+                    class="w-full bg-[#232a33] border border-[#333c46] rounded-xl px-3 py-2 text-white text-sm">
+                <option value="60m">60 metros</option>
+                <option value="1500m">1500 metros (en segundos)</option>
+                <option value="banca_40kg">Banca 40 kg</option>
+                <option value="dominadas">Dominadas 30s</option>
+                <option value="flexibilidad">Flexibilidad cajón</option>
+                <option value="cuerda_6m">Cuerda 6m</option>
+            </select>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Valor de inicio</label>
+                    <input type="number" step="0.01" id="target-start" placeholder="ej: 8.50"
+                           class="w-full bg-[#232a33] border border-[#333c46] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-[#ff8a1e]">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Objetivo</label>
+                    <input type="number" step="0.01" id="target-goal" placeholder="ej: 8.00"
+                           class="w-full bg-[#232a33] border border-[#333c46] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-[#ff8a1e]">
+                </div>
+            </div>
+            <button onclick="saveTarget()" class="w-full py-2 rounded-xl border border-[#ff8a1e] text-[#ff8a1e] font-bold text-sm">Guardar objetivos</button>
+            <p id="target-msg" class="text-center text-sm hidden"></p>
+        </div>
+    </div>
 
 <!-- ── PANEL: ASK ─────────────────────────────────────────────────────── -->
 <div id="panel-ask" class="panel p-3 space-y-4">
@@ -362,6 +395,65 @@ async function askQuestion() {
 }
 
 document.getElementById('q-input').addEventListener('keydown', e => { if (e.key === 'Enter') askQuestion(); });
+
+// ─── Targets ──────────────────────────────────────────────────────────
+let cachedTargets = {};
+
+function toggleTargetForm() {
+    const form = document.getElementById('target-form');
+    const icon = document.getElementById('target-toggle-icon');
+    const isHidden = form.classList.toggle('hidden');
+    icon.textContent = isHidden ? '▼' : '▲';
+    if (!isHidden) loadTargetValues(); // pre-fill on open
+}
+
+async function loadTargetValues() {
+    const test = document.getElementById('target-test').value;
+    // Fetch if not cached
+    if (!Object.keys(cachedTargets).length) {
+        try {
+            const res = await fetch('/api/targets?user_id=' + userId);
+            cachedTargets = await res.json();
+        } catch(e) { return; }
+    }
+    const t = cachedTargets[test];
+    if (t) {
+        document.getElementById('target-start').value = t.start ?? '';
+        document.getElementById('target-goal').value  = t.goal  ?? '';
+    } else {
+        document.getElementById('target-start').value = '';
+        document.getElementById('target-goal').value  = '';
+    }
+}
+
+async function saveTarget() {
+    const test  = document.getElementById('target-test').value;
+    const start = parseFloat(document.getElementById('target-start').value);
+    const goal  = parseFloat(document.getElementById('target-goal').value);
+    const msg   = document.getElementById('target-msg');
+
+    if (isNaN(start) || isNaN(goal)) {
+        msg.className = 'text-center text-sm text-red-400';
+        msg.textContent = 'Introduce valores numéricos válidos.';
+        msg.classList.remove('hidden'); return;
+    }
+    try {
+        const res = await fetch('/api/targets', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ user_id: userId, test_name: test, start, goal })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        msg.className = 'text-center text-sm text-green-400';
+        msg.textContent = '✅ Objetivo guardado. Pulsa "Calcular" para ver el progreso.';
+        msg.classList.remove('hidden');
+        cachedTargets = {}; // invalidate cache
+    } catch(e) {
+        msg.className = 'text-center text-sm text-red-400';
+        msg.textContent = 'Error: ' + e.message;
+        msg.classList.remove('hidden');
+    }
+}
 
 // ─── Start ────────────────────────────────────────────────────────────
 init();

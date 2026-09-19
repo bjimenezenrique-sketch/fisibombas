@@ -42,6 +42,39 @@ def get_plan():
         plan_data = json.load(f)
     return jsonify(plan_data)
 
+@app.route('/api/targets', methods=['GET'])
+def get_targets():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({"error": "user_id required"}), 400
+    custom = database.get_targets(user_id)
+    # Merge defaults with custom overrides
+    result = {}
+    for key, test in TESTS.items():
+        result[key] = {
+            "label": test["label"],
+            "unit": test["unit"],
+            "lower_is_better": test["lower_is_better"],
+            "start": custom.get(key, {}).get("start", test["start"]),
+            "goal":  custom.get(key, {}).get("goal",  test["goal"]),
+            "is_custom": key in custom
+        }
+    return jsonify(result)
+
+@app.route('/api/targets', methods=['POST'])
+def save_target():
+    data = request.json
+    user_id   = data.get('user_id')
+    test_name = data.get('test_name')
+    start_val = data.get('start')
+    goal_val  = data.get('goal')
+    if not all([user_id, test_name, start_val is not None, goal_val is not None]):
+        return jsonify({"error": "user_id, test_name, start and goal required"}), 400
+    if test_name not in TESTS:
+        return jsonify({"error": f"Unknown test. Valid: {list(TESTS.keys())}"}), 400
+    database.save_target(user_id, test_name, float(start_val), float(goal_val))
+    return jsonify({"ok": True})
+
 @app.route('/api/progress', methods=['GET'])
 def get_progress():
     """Returns progress toward objectives. Uses saved marks or estimates from AI."""
@@ -49,43 +82,36 @@ def get_progress():
     if not user_id:
         return jsonify({"error": "user_id required"}), 400
     
-    marks = database.get_marks(user_id)
+    marks   = database.get_marks(user_id)
     records = database.get_all_records(user_id)
+    custom_targets = database.get_targets(user_id)
     
     result = {}
-    for key, test in TESTS.items():
+    for key, default_test in TESTS.items():
+        # Use custom start/goal if saved, otherwise use hardcoded defaults
+        start = custom_targets.get(key, {}).get("start", default_test["start"])
+        goal  = custom_targets.get(key, {}).get("goal",  default_test["goal"])
+        lower_is_better = default_test["lower_is_better"]
+        
         current_value = marks.get(key, {}).get("value")
-        last_updated = marks.get(key, {}).get("updated")
+        last_updated  = marks.get(key, {}).get("updated")
         
         if current_value is not None:
-            # Calculate real % progress
-            start = test["start"]
-            goal = test["goal"]
-            if test["lower_is_better"]:
-                # Progress = how much we've improved from start toward goal
-                total_to_improve = start - goal
-                improved = start - current_value
-            else:
-                total_to_improve = goal - start
-                improved = current_value - start
-            
+            total_to_improve = (start - goal) if lower_is_better else (goal - start)
+            improved = (start - current_value) if lower_is_better else (current_value - start)
             pct = max(0, min(100, round((improved / total_to_improve) * 100))) if total_to_improve != 0 else 100
             status = "real"
         else:
-            # No mark saved — estimate from training records using AI
-            current_value = None
-            pct = None
+            pct    = None
             status = "estimated"
         
         result[key] = {
-            "label": test["label"],
-            "unit": test["unit"],
-            "start": test["start"],
-            "goal": test["goal"],
-            "lower_is_better": test["lower_is_better"],
+            "label": default_test["label"],
+            "unit":  default_test["unit"],
+            "lower_is_better": lower_is_better,
+            "start": start, "goal": goal,
             "current": current_value,
-            "pct": pct,
-            "status": status,
+            "pct": pct, "status": status,
             "last_updated": last_updated
         }
     
