@@ -150,6 +150,24 @@ async def hoy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"No tengo datos de entrenamiento para la fecha de hoy ({today_iso}).")
         return
     text = format_plan_text(plan)
+
+    # Find last record for a similar session type and append recommendation
+    context_keyword = plan['context'].split()[0].lower() if plan.get('context') else ""
+    if context_keyword and context_keyword != "descanso":
+        last_similar = None
+        today_date = datetime.strptime(today_iso, "%Y-%m-%d")
+        for i in range(1, 30):
+            check_date = today_date - timedelta(days=i)
+            check_iso = check_date.strftime("%Y-%m-%d")
+            check_plan = PLAN_BY_ISO.get(check_iso)
+            if check_plan and context_keyword in check_plan.get("context", "").lower():
+                rec = database.get_session(update.effective_user.id, check_iso)
+                if rec and rec.get("ai_feedback"):
+                    last_similar = {"date": check_iso, "rec": rec}
+                    break
+        if last_similar:
+            text += f"\n\n💡 *Recomendación del Preparador* (basada en tu último {context_keyword} del {last_similar['date']}):\n_{last_similar['rec']['ai_feedback']}_"
+
     await update.message.reply_markdown(text)
 
 # ─── /registrar (HOY) ──────────────────────────────────────────────────────────

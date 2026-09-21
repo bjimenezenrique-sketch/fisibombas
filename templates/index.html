@@ -16,18 +16,18 @@
         .panel.active { display: block; }
         .pbar-bg { background-color: #232a33; border-radius: 9999px; height: 10px; overflow: hidden; }
         .pbar-fill { height: 10px; border-radius: 9999px; transition: width 1s ease; }
-        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); align-items: flex-start; justify-content: center; z-index: 100; padding: 1rem; overflow-y: auto; }
         .modal-overlay.open { display: flex; }
-        .modal-box { background: #1b2027; border: 1px solid #333c46; max-height: 88vh; overflow-y: auto; width: 100%; max-width: 480px; border-radius: 1rem; padding: 1.25rem; }
+        .modal-box { background: #1b2027; border: 1px solid #333c46; width: 100%; max-width: 480px; border-radius: 1rem; padding: 1.25rem; margin: auto; position: relative; }
         .day-box { cursor: pointer; transition: 0.15s; }
         .day-box:hover { border-color: #ff8a1e !important; }
         .today-ring { border-color: #ff8a1e !important; border-width: 2px; }
-        .log-dot { width: 8px; height: 8px; background: #43c98d; border-radius: 50%; display: inline-block; }
+        .log-dot { width: 8px; height: 8px; background: #43c98d; border-radius: 50%; display: inline-block; flex-shrink: 0; }
     </style>
 </head>
 <body class="pb-24">
 
-<!-- ── HEADER ───────────────────────────────────────────────────────── -->
+<!-- HEADER -->
 <div class="card border-b border-[#333c46] px-4 py-3 sticky top-0 z-40">
     <h1 class="text-lg font-bold uppercase tracking-widest accent text-center">Diario AENA</h1>
     <div class="flex gap-2 justify-center mt-2">
@@ -37,29 +37,24 @@
     </div>
 </div>
 
-<!-- ── PANEL: CALENDAR ───────────────────────────────────────────────── -->
-<div id="panel-cal" class="panel active p-3 space-y-4">
+<!-- PANEL: CALENDAR -->
+<div id="panel-cal" class="panel active p-3">
     <div id="calendar-container">
         <p class="text-center text-gray-400 py-10">Cargando...</p>
     </div>
 </div>
 
-<!-- ── PANEL: PROGRESS ───────────────────────────────────────────────── -->
+<!-- PANEL: PROGRESS -->
 <div id="panel-prog" class="panel p-3 space-y-4">
-
-    <!-- Info banner -->
     <div class="card rounded-2xl p-3 text-xs text-gray-400">
-        🤖 = estimado por IA a partir de tus registros &nbsp;|&nbsp; ✅ = marca real guardada
+        🤖 = estimado por IA · ✅ = marca real guardada
     </div>
-
-    <!-- Progress cards -->
     <div id="progress-cards" class="space-y-3">
         <p class="text-center text-gray-400 py-6">Pulsa "Calcular" para cargar el progreso.</p>
     </div>
-
     <button onclick="loadProgress()" class="btn-accent w-full py-2.5 rounded-xl">🔄 Calcular / Actualizar progreso</button>
 
-    <!-- Update mark form -->
+    <!-- Guardar marca real -->
     <div class="card rounded-2xl p-4 space-y-3">
         <h3 class="font-bold text-white">✏️ Guardar marca real</h3>
         <select id="mark-test" class="w-full bg-[#232a33] border border-[#333c46] rounded-xl px-3 py-2 text-white text-sm">
@@ -70,25 +65,24 @@
             <option value="flexibilidad">Flexibilidad cajón (cm)</option>
             <option value="cuerda_6m">Cuerda 6m (segundos)</option>
         </select>
-        <input type="number" step="0.01" id="mark-value"
-               placeholder="Tu marca actual..."
+        <input type="number" step="0.01" id="mark-value" placeholder="Tu marca actual..."
                class="w-full bg-[#232a33] border border-[#333c46] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-[#ff8a1e]">
         <button onclick="saveMark()" class="btn-accent w-full py-2 rounded-xl">Guardar marca</button>
         <p id="mark-msg" class="text-center text-sm hidden"></p>
     </div>
 
-    <!-- Edit targets form -->
+    <!-- Editar objetivos -->
     <div class="card rounded-2xl p-4 space-y-3">
         <button onclick="toggleTargetForm()" class="w-full flex justify-between items-center text-left">
             <h3 class="font-bold text-white">⚙️ Editar inicio y objetivo</h3>
             <span id="target-toggle-icon" class="text-gray-400 text-lg">▼</span>
         </button>
-        <div id="target-form" class="hidden space-y-3 pt-1 border-t border-[#333c46]">
-            <p class="text-xs text-gray-400">Cambia el valor de inicio (tu marca del primer día) o el objetivo final de cada prueba.</p>
+        <div id="target-form" class="hidden space-y-3 pt-2 border-t border-[#333c46]">
+            <p class="text-xs text-gray-400">Cambia el valor de inicio o el objetivo final de cada prueba.</p>
             <select id="target-test" onchange="loadTargetValues()"
                     class="w-full bg-[#232a33] border border-[#333c46] rounded-xl px-3 py-2 text-white text-sm">
                 <option value="60m">60 metros</option>
-                <option value="1500m">1500 metros (en segundos)</option>
+                <option value="1500m">1500 metros (segundos)</option>
                 <option value="banca_40kg">Banca 40 kg</option>
                 <option value="dominadas">Dominadas 30s</option>
                 <option value="flexibilidad">Flexibilidad cajón</option>
@@ -110,26 +104,28 @@
             <p id="target-msg" class="text-center text-sm hidden"></p>
         </div>
     </div>
+</div>
+<!-- END PANEL: PROGRESS -->
 
-<!-- ── PANEL: ASK ─────────────────────────────────────────────────────── -->
+<!-- PANEL: ASK -->
 <div id="panel-ask" class="panel p-3 space-y-4">
     <div class="card rounded-2xl p-4">
         <h2 class="font-bold mb-3 text-white">💬 Pregunta al Preparador</h2>
-        <div id="chat-box" class="min-h-20 max-h-60 overflow-y-auto mb-3 space-y-2 text-sm">
-            <p class="text-gray-500">Escríbeme cualquier duda sobre el plan.</p>
+        <div id="chat-box" class="min-h-20 max-h-72 overflow-y-auto mb-3 space-y-2 text-sm">
+            <p class="text-gray-500">Escríbeme cualquier duda sobre el plan o tus entrenos.</p>
         </div>
         <div class="flex gap-2">
-            <input type="text" id="q-input"
-                   placeholder="Tu duda..."
+            <input type="text" id="q-input" placeholder="Tu duda..."
                    class="flex-1 bg-[#232a33] border border-[#333c46] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-[#ff8a1e]">
             <button onclick="askQuestion()" class="btn-accent px-4 py-2 rounded-xl">→</button>
         </div>
     </div>
 </div>
+<!-- END PANEL: ASK -->
 
-<!-- ── DAY MODAL ──────────────────────────────────────────────────────── -->
-<div id="day-modal" class="modal-overlay">
-    <div class="modal-box relative">
+<!-- DAY MODAL -->
+<div id="day-modal" class="modal-overlay" onclick="handleModalClick(event)">
+    <div class="modal-box">
         <button onclick="closeModal()" class="absolute top-3 right-4 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
         <div id="modal-body"></div>
     </div>
@@ -137,7 +133,7 @@
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
-// ─── Bootstrap ────────────────────────────────────────────────────────
+// Bootstrap
 const tg = window.Telegram?.WebApp;
 if (tg) tg.expand();
 const userId = tg?.initDataUnsafe?.user?.id || '123456';
@@ -145,17 +141,16 @@ const userId = tg?.initDataUnsafe?.user?.id || '123456';
 let planData = [];
 let recordsDict = {};
 
-// ─── Tab navigation ───────────────────────────────────────────────────
+// ── Tab navigation ────────────────────────────────────────────────────
 function showTab(name) {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('panel-' + name).classList.add('active');
-    // Activate matching button (3rd arg = case sensitive)
     const btn = [...document.querySelectorAll('.tab-btn')].find(b => b.getAttribute('onclick') === `showTab('${name}')`);
     if (btn) btn.classList.add('active');
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────
 async function init() {
     try {
         const [pr, rr] = await Promise.all([
@@ -172,7 +167,7 @@ async function init() {
     }
 }
 
-// ─── Calendar ─────────────────────────────────────────────────────────
+// ── Calendar ──────────────────────────────────────────────────────────
 function todayIso() {
     const d = new Date();
     const p = n => String(n).padStart(2,'0');
@@ -183,15 +178,12 @@ function renderCalendar() {
     const container = document.getElementById('calendar-container');
     const today = todayIso();
     const weeks = {};
-    planData.forEach(day => {
-        (weeks[day.week] = weeks[day.week] || []).push(day);
-    });
+    planData.forEach(day => { (weeks[day.week] = weeks[day.week] || []).push(day); });
+
     let html = '';
     for (const [wk, days] of Object.entries(weeks)) {
         html += `<div class="card rounded-2xl p-3 mb-4">
-            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                Semana ${wk} · Mesociclo ${days[0].mesociclo}
-            </p>
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Semana ${wk} · Mesociclo ${days[0].mesociclo}</p>
             <div class="grid grid-cols-2 gap-2">`;
         days.forEach(day => {
             const hasRec  = !!recordsDict[day.iso];
@@ -199,18 +191,12 @@ function renderCalendar() {
             const isRest  = !day.tables.length && !day.notes.length;
             const d = new Date(day.iso + 'T00:00:00');
             const lbl = `${d.toLocaleDateString('es',{weekday:'short'})} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
-            html += `
-            <div onclick="openModal('${day.iso}')"
-                 class="day-box border rounded-xl p-2.5
-                        ${isToday ? 'today-ring' : 'border-[#333c46]'}
-                        ${isRest  ? 'opacity-50 bg-[#12151a]' : 'bg-[#232a33]'}">
+            html += `<div onclick="openModal('${day.iso}')" class="day-box border rounded-xl p-2.5 ${isToday ? 'today-ring' : 'border-[#333c46]'} ${isRest ? 'opacity-50 bg-[#12151a]' : 'bg-[#232a33]'}">
                 <div class="flex items-center justify-between mb-1">
                     <span class="text-xs font-bold text-gray-400">${lbl}</span>
                     ${hasRec ? '<span class="log-dot"></span>' : ''}
                 </div>
-                <div class="text-xs font-semibold truncate ${isRest ? 'text-gray-500' : 'text-white'}">
-                    ${isRest ? 'Descanso' : day.context}
-                </div>
+                <div class="text-xs font-semibold truncate ${isRest ? 'text-gray-500' : 'text-white'}">${isRest ? 'Descanso' : day.context}</div>
             </div>`;
         });
         html += '</div></div>';
@@ -218,18 +204,19 @@ function renderCalendar() {
     container.innerHTML = html;
 }
 
-// ─── Day modal ────────────────────────────────────────────────────────
+// ── Day modal ─────────────────────────────────────────────────────────
 function openModal(iso) {
     const day = planData.find(d => d.iso === iso);
-    const rec = recordsDict[iso];
     if (!day) return;
+    const rec = recordsDict[iso];
 
     const d = new Date(iso + 'T00:00:00');
     const dateStr = d.toLocaleDateString('es', {weekday:'long', day:'2-digit', month:'long'});
 
-    let html = `<h2 class="text-base font-bold accent mb-0.5 capitalize">${dateStr}</h2>
+    let html = `<h2 class="text-base font-bold accent mb-0.5 capitalize pr-6">${dateStr}</h2>
                 <p class="text-sm text-gray-400 mb-4">${day.context || 'Descanso absoluto'}</p>`;
 
+    // Training detail
     day.tables.forEach(table => {
         table.rows.forEach(row => {
             html += `<div class="bg-[#232a33] p-2.5 rounded-lg border border-[#333c46] mb-2">
@@ -249,6 +236,20 @@ function openModal(iso) {
         </div>`;
     }
 
+    // Last similar session feedback recommendation
+    const ctxKeyword = (day.context || '').split(/[\s(]/)[0].toLowerCase();
+    if (ctxKeyword && ctxKeyword !== 'descanso') {
+        const lastSimilar = findLastSimilarRecord(iso, ctxKeyword);
+        if (lastSimilar) {
+            html += `<div class="mb-4 p-3 bg-[#1b2027] border border-[#ff8a1e55] rounded-xl">
+                <p class="text-xs font-bold accent mb-1">💡 Recomendación basada en tu último ${ctxKeyword}</p>
+                <p class="text-xs text-gray-300">${lastSimilar.feedback || '—'}</p>
+                <p class="text-xs text-gray-600 mt-1">Registro del ${lastSimilar.date} · RPE ${lastSimilar.rpe ?? '?'}/10</p>
+            </div>`;
+        }
+    }
+
+    // User record for this day
     if (rec) {
         html += `<div class="pt-4 border-t border-[#333c46]">
             <h3 class="font-bold mb-2 text-white">✅ Tu registro</h3>
@@ -257,7 +258,7 @@ function openModal(iso) {
                 <p><span class="text-gray-400">RPE:</span> ${rec.rpe ?? 'N/A'}/10</p>
                 <p><span class="text-gray-400">Molestias:</span> ${rec.pain}</p>
                 ${rec.notes && rec.notes !== 'Ninguna' ? `<p class="italic text-gray-300 text-xs">"${rec.notes}"</p>` : ''}
-                <div class="mt-2 p-2.5 bg-[#1b2027] border border-[#ff8a1e30] rounded-lg text-xs">
+                <div class="mt-2 p-2.5 bg-[#1b2027] border border-[#ff8a1e33] rounded-lg text-xs">
                     <p class="accent font-bold mb-1">🤖 Feedback del Preparador</p>
                     <p>${rec.feedback || '—'}</p>
                 </div>
@@ -265,7 +266,7 @@ function openModal(iso) {
         </div>`;
     } else {
         html += `<div class="pt-4 border-t border-[#333c46] text-center text-sm text-gray-400">
-            Sin registro.<br>Usa <b>/registrar</b> o <b>/registrar_dia</b> en Telegram.
+            Sin registro aún.<br>Usa <b>/registrar</b> o <b>/registrar_dia</b> en Telegram.
         </div>`;
     }
 
@@ -273,23 +274,31 @@ function openModal(iso) {
     document.getElementById('day-modal').classList.add('open');
 }
 
-function closeModal() {
-    document.getElementById('day-modal').classList.remove('open');
+function findLastSimilarRecord(currentIso, keyword) {
+    // Find the most recent record from a day whose context matches the keyword, before currentIso
+    const sorted = Object.entries(recordsDict)
+        .filter(([date, rec]) => {
+            if (date >= currentIso) return false;
+            const dayPlan = planData.find(d => d.iso === date);
+            return dayPlan && (dayPlan.context || '').toLowerCase().includes(keyword);
+        })
+        .sort((a, b) => b[0].localeCompare(a[0]));
+    if (sorted.length === 0) return null;
+    const [date, rec] = sorted[0];
+    return { date, ...rec };
 }
-document.getElementById('day-modal').addEventListener('click', e => {
-    if (e.target === document.getElementById('day-modal')) closeModal();
-});
 
-// ─── Progress ─────────────────────────────────────────────────────────
+function closeModal() { document.getElementById('day-modal').classList.remove('open'); }
+function handleModalClick(e) { if (e.target === document.getElementById('day-modal')) closeModal(); }
+
+// ── Progress ──────────────────────────────────────────────────────────
 async function loadProgress() {
     const cards = document.getElementById('progress-cards');
-    cards.innerHTML = '<p class="text-center text-gray-400 py-4">Calculando con IA... puede tardar unos segundos ⏳</p>';
-
+    cards.innerHTML = '<p class="text-center text-gray-400 py-4">Calculando con IA... ⏳</p>';
     try {
         const res = await fetch('/api/progress?user_id=' + userId);
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        renderProgress(data);
+        renderProgress(await res.json());
     } catch(e) {
         cards.innerHTML = `<p class="text-red-400 text-center py-4">Error: ${e.message}. Inténtalo de nuevo.</p>`;
     }
@@ -299,40 +308,33 @@ function fmtTime(secs) {
     const m = Math.floor(secs / 60), s = Math.round(secs % 60);
     return `${m}:${String(s).padStart(2,'0')}`;
 }
-
-function fmtVal(val, unit, lowBetter) {
+function fmtVal(val, unit) {
     if (val === null || val === undefined) return '—';
-    if (unit === 's' && val > 60) return fmtTime(val) + ' min';
+    if (unit === 's' && val > 60) return fmtTime(val);
     return val + ' ' + unit;
 }
 
 function renderProgress(data) {
     const cards = document.getElementById('progress-cards');
-    const colorOf = pct => pct < 30 ? '#ef4444' : pct < 60 ? '#f59e0b' : pct < 85 ? '#43c98d' : '#22d3ee';
+    const colorOf = p => p < 30 ? '#ef4444' : p < 60 ? '#f59e0b' : p < 85 ? '#43c98d' : '#22d3ee';
     let html = '';
-    for (const [key, t] of Object.entries(data)) {
-        const pct = t.pct ?? 0;
+    for (const [, t] of Object.entries(data)) {
+        const pct   = t.pct ?? 0;
         const color = colorOf(pct);
         const badge = t.status === 'estimated' ? '🤖 IA' : '✅ Real';
-        const startLabel = fmtVal(t.start, t.unit, t.lower_is_better);
-        const goalLabel  = fmtVal(t.goal,  t.unit, t.lower_is_better);
-        const currLabel  = t.current !== null ? fmtVal(t.current, t.unit, t.lower_is_better) : '(sin marca)';
-        html += `
-        <div class="card rounded-2xl p-4">
+        html += `<div class="card rounded-2xl p-4">
             <div class="flex justify-between items-start mb-2">
                 <div>
                     <h3 class="font-bold text-white text-sm">${t.label}</h3>
-                    <p class="text-xs text-gray-400">Inicio: ${startLabel} → Objetivo: <b class="text-white">${goalLabel}</b></p>
+                    <p class="text-xs text-gray-400">Inicio: ${fmtVal(t.start, t.unit)} → Obj: <b class="text-white">${fmtVal(t.goal, t.unit)}</b></p>
                 </div>
                 <span class="text-xs px-2 py-0.5 rounded-full bg-[#232a33] text-gray-400 shrink-0 ml-2">${badge}</span>
             </div>
             <div class="flex items-center gap-3 mb-1">
-                <div class="flex-1 pbar-bg">
-                    <div class="pbar-fill" style="width:${pct}%; background:${color};"></div>
-                </div>
+                <div class="flex-1 pbar-bg"><div class="pbar-fill" style="width:${pct}%; background:${color};"></div></div>
                 <span class="text-base font-bold shrink-0" style="color:${color}; min-width:3rem; text-align:right">${pct}%</span>
             </div>
-            <p class="text-xs text-gray-400">Actual: <b class="text-white">${currLabel}</b>
+            <p class="text-xs text-gray-400">Actual: <b class="text-white">${t.current !== null ? fmtVal(t.current, t.unit) : '(sin marca)'}</b>
                ${t.last_updated ? `<span class="text-gray-600 ml-2">${t.last_updated.slice(0,10)}</span>` : ''}
             </p>
         </div>`;
@@ -344,72 +346,28 @@ async function saveMark() {
     const test  = document.getElementById('mark-test').value;
     const value = parseFloat(document.getElementById('mark-value').value);
     const msg   = document.getElementById('mark-msg');
-
-    if (isNaN(value)) {
-        msg.className = 'text-center text-sm text-red-400'; msg.textContent = 'Introduce un número válido.'; msg.classList.remove('hidden'); return;
-    }
+    if (isNaN(value)) { showMsg(msg, 'Introduce un número válido.', false); return; }
     try {
-        const res = await fetch('/api/mark', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, test_name: test, value })
-        });
+        const res = await fetch('/api/mark', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id:userId,test_name:test,value}) });
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        msg.className = 'text-center text-sm text-green-400';
-        msg.textContent = '✅ Marca guardada. Pulsa "Calcular" para ver el progreso actualizado.';
-        msg.classList.remove('hidden');
+        showMsg(msg, '✅ Marca guardada. Pulsa "Calcular" para ver el progreso.', true);
         document.getElementById('mark-value').value = '';
-    } catch(e) {
-        msg.className = 'text-center text-sm text-red-400';
-        msg.textContent = 'Error al guardar: ' + e.message;
-        msg.classList.remove('hidden');
-    }
+    } catch(e) { showMsg(msg, 'Error: ' + e.message, false); }
 }
 
-// ─── Ask ──────────────────────────────────────────────────────────────
-async function askQuestion() {
-    const input = document.getElementById('q-input');
-    const q = input.value.trim();
-    if (!q) return;
-
-    const chat = document.getElementById('chat-box');
-    chat.innerHTML += `<div class="text-right"><span class="inline-block bg-[#ff8a1e] text-[#1a1206] px-3 py-1.5 rounded-lg text-sm">${q}</span></div>`;
-    input.value = '';
-    const lid = 'l' + Date.now();
-    chat.innerHTML += `<div id="${lid}" class="text-gray-500 text-sm italic">Pensando...</div>`;
-    chat.scrollTop = chat.scrollHeight;
-
-    try {
-        const res = await fetch('/api/ask', {
-            method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ question: q })
-        });
-        const data = await res.json();
-        document.getElementById(lid)?.remove();
-        const formatted = (data.answer || 'Sin respuesta').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
-        chat.innerHTML += `<div class="text-left"><span class="inline-block bg-[#232a33] border border-[#333c46] px-3 py-1.5 rounded-lg text-sm">${formatted}</span></div>`;
-    } catch(e) {
-        document.getElementById(lid)?.remove();
-        chat.innerHTML += `<div class="text-red-400 text-sm">Error de conexión.</div>`;
-    }
-    chat.scrollTop = chat.scrollHeight;
-}
-
-document.getElementById('q-input').addEventListener('keydown', e => { if (e.key === 'Enter') askQuestion(); });
-
-// ─── Targets ──────────────────────────────────────────────────────────
+// ── Targets ───────────────────────────────────────────────────────────
 let cachedTargets = {};
 
 function toggleTargetForm() {
     const form = document.getElementById('target-form');
     const icon = document.getElementById('target-toggle-icon');
-    const isHidden = form.classList.toggle('hidden');
-    icon.textContent = isHidden ? '▼' : '▲';
-    if (!isHidden) loadTargetValues(); // pre-fill on open
+    const hidden = form.classList.toggle('hidden');
+    icon.textContent = hidden ? '▼' : '▲';
+    if (!hidden) loadTargetValues();
 }
 
 async function loadTargetValues() {
     const test = document.getElementById('target-test').value;
-    // Fetch if not cached
     if (!Object.keys(cachedTargets).length) {
         try {
             const res = await fetch('/api/targets?user_id=' + userId);
@@ -417,13 +375,8 @@ async function loadTargetValues() {
         } catch(e) { return; }
     }
     const t = cachedTargets[test];
-    if (t) {
-        document.getElementById('target-start').value = t.start ?? '';
-        document.getElementById('target-goal').value  = t.goal  ?? '';
-    } else {
-        document.getElementById('target-start').value = '';
-        document.getElementById('target-goal').value  = '';
-    }
+    document.getElementById('target-start').value = t ? (t.start ?? '') : '';
+    document.getElementById('target-goal').value  = t ? (t.goal  ?? '') : '';
 }
 
 async function saveTarget() {
@@ -431,31 +384,48 @@ async function saveTarget() {
     const start = parseFloat(document.getElementById('target-start').value);
     const goal  = parseFloat(document.getElementById('target-goal').value);
     const msg   = document.getElementById('target-msg');
-
-    if (isNaN(start) || isNaN(goal)) {
-        msg.className = 'text-center text-sm text-red-400';
-        msg.textContent = 'Introduce valores numéricos válidos.';
-        msg.classList.remove('hidden'); return;
-    }
+    if (isNaN(start) || isNaN(goal)) { showMsg(msg, 'Introduce valores numéricos válidos.', false); return; }
     try {
-        const res = await fetch('/api/targets', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ user_id: userId, test_name: test, start, goal })
-        });
+        const res = await fetch('/api/targets', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id:userId,test_name:test,start,goal}) });
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        msg.className = 'text-center text-sm text-green-400';
-        msg.textContent = '✅ Objetivo guardado. Pulsa "Calcular" para ver el progreso.';
-        msg.classList.remove('hidden');
-        cachedTargets = {}; // invalidate cache
-    } catch(e) {
-        msg.className = 'text-center text-sm text-red-400';
-        msg.textContent = 'Error: ' + e.message;
-        msg.classList.remove('hidden');
-    }
+        showMsg(msg, '✅ Guardado. Pulsa "Calcular" para ver el progreso.', true);
+        cachedTargets = {};
+    } catch(e) { showMsg(msg, 'Error: ' + e.message, false); }
 }
 
-// ─── Start ────────────────────────────────────────────────────────────
+// ── Ask ───────────────────────────────────────────────────────────────
+async function askQuestion() {
+    const input = document.getElementById('q-input');
+    const q = input.value.trim();
+    if (!q) return;
+    const chat = document.getElementById('chat-box');
+    chat.innerHTML += `<div class="text-right"><span class="inline-block bg-[#ff8a1e] text-[#1a1206] px-3 py-1.5 rounded-lg text-sm">${escHtml(q)}</span></div>`;
+    input.value = '';
+    const lid = 'l' + Date.now();
+    chat.innerHTML += `<div id="${lid}" class="text-gray-500 text-sm italic">Pensando...</div>`;
+    chat.scrollTop = chat.scrollHeight;
+    try {
+        const res = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({question:q}) });
+        const data = await res.json();
+        document.getElementById(lid)?.remove();
+        const txt = (data.answer || 'Sin respuesta').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>').replace(/\*(.*?)\*/g,'<i>$1</i>');
+        chat.innerHTML += `<div class="text-left"><span class="inline-block bg-[#232a33] border border-[#333c46] px-3 py-1.5 rounded-lg text-sm">${txt}</span></div>`;
+    } catch(e) {
+        document.getElementById(lid)?.remove();
+        chat.innerHTML += `<div class="text-red-400 text-sm">Error de conexión. Inténtalo de nuevo.</div>`;
+    }
+    chat.scrollTop = chat.scrollHeight;
+}
+document.getElementById('q-input').addEventListener('keydown', e => { if (e.key === 'Enter') askQuestion(); });
+
+// ── Utils ─────────────────────────────────────────────────────────────
+function showMsg(el, text, ok) {
+    el.className = `text-center text-sm ${ok ? 'text-green-400' : 'text-red-400'}`;
+    el.textContent = text;
+    el.classList.remove('hidden');
+}
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
 init();
 </script>
 </body>
