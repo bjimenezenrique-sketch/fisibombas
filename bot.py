@@ -36,6 +36,32 @@ with open("plan_data.json", "r", encoding="utf-8") as f:
     PLAN_DATA = json.load(f)
 PLAN_BY_ISO = {day["iso"]: day for day in PLAN_DATA}
 
+def classify_session(context: str) -> str:
+    """Return a short type label for a session context string."""
+    c = context.lower()
+    if "umbral" in c:                          return "umbral"
+    if "aeróbico" in c or "aerobico" in c or "rodaje" in c or "rodaje" in c: return "aeróbico"
+    if "pista" in c and "gimnasio" in c:       return "velocidad+fuerza"
+    if "pista" in c:                           return "pista"
+    if "compensatorio" in c or "flexibilidad" in c: return "compensatorio"
+    if "gimnasio" in c or "gym" in c:          return "gimnasio"
+    if "exterior" in c:                         return "exterior"
+    return "general"
+
+def find_last_record_of_type(user_id: int, current_iso: str, session_type: str):
+    """Search backwards up to 60 days for the last logged session of the same type."""
+    current_date = datetime.strptime(current_iso, "%Y-%m-%d")
+    for i in range(1, 61):
+        check_iso = (current_date - timedelta(days=i)).strftime("%Y-%m-%d")
+        check_plan = PLAN_BY_ISO.get(check_iso)
+        if not check_plan:
+            continue
+        if classify_session(check_plan.get("context", "")) == session_type:
+            rec = database.get_session(user_id, check_iso)
+            if rec and rec.get("ai_feedback"):
+                return check_iso, rec
+    return None, None
+
 # Conversation states - shared for both /registrar and /registrar_dia
 RPE, PAIN, NOTES_AND_PHOTO, FINAL = range(4)
 # State for date selection in registrar_dia
@@ -151,22 +177,11 @@ async def hoy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     text = format_plan_text(plan)
 
-    # Find last record for a similar session type and append recommendation
-    context_keyword = plan['context'].split()[0].lower() if plan.get('context') else ""
-    if context_keyword and context_keyword != "descanso":
-        last_similar = None
-        today_date = datetime.strptime(today_iso, "%Y-%m-%d")
-        for i in range(1, 30):
-            check_date = today_date - timedelta(days=i)
-            check_iso = check_date.strftime("%Y-%m-%d")
-            check_plan = PLAN_BY_ISO.get(check_iso)
-            if check_plan and context_keyword in check_plan.get("context", "").lower():
-                rec = database.get_session(update.effective_user.id, check_iso)
-                if rec and rec.get("ai_feedback"):
-                    last_similar = {"date": check_iso, "rec": rec}
-                    break
-        if last_similar:
-            text += f"\n\n💡 *Recomendación del Preparador* (basada en tu último {context_keyword} del {last_similar['date']}):\n_{last_similar['rec']['ai_feedback']}_"
+    # Find last record of the same session type and show recommendation
+    session_type = classify_session(plan.get("context", ""))
+    last_iso, last_rec = find_last_record_of_type(update.effective_user.id, today_iso, session_type)
+    if last_iso and last_rec:
+        text += f"\n\n💡 *Recomendación del Preparador* (último entreno de {session_type} — {last_iso}):\n_{last_rec['ai_feedback']}_"
 
     await update.message.reply_markdown(text)
 

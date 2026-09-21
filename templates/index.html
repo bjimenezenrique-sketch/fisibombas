@@ -236,15 +236,17 @@ function openModal(iso) {
         </div>`;
     }
 
-    // Last similar session feedback recommendation
-    const ctxKeyword = (day.context || '').split(/[\s(]/)[0].toLowerCase();
-    if (ctxKeyword && ctxKeyword !== 'descanso') {
-        const lastSimilar = findLastSimilarRecord(iso, ctxKeyword);
-        if (lastSimilar) {
+    // Recommendation from last session of same type
+    const sessionType = classifySession(day.context);
+    if (sessionType !== 'general') {
+        const lastRec = findLastRecordOfType(iso, sessionType);
+        if (lastRec) {
+            const d7 = new Date(lastRec.iso + 'T00:00:00');
+            const d7str = d7.toLocaleDateString('es', {weekday:'long', day:'2-digit', month:'long'});
             html += `<div class="mb-4 p-3 bg-[#1b2027] border border-[#ff8a1e55] rounded-xl">
-                <p class="text-xs font-bold accent mb-1">💡 Recomendación basada en tu último ${ctxKeyword}</p>
-                <p class="text-xs text-gray-300">${lastSimilar.feedback || '—'}</p>
-                <p class="text-xs text-gray-600 mt-1">Registro del ${lastSimilar.date} · RPE ${lastSimilar.rpe ?? '?'}/10</p>
+                <p class="text-xs font-bold accent mb-1">💡 Recomendación — último entreno de ${sessionType}</p>
+                <p class="text-xs text-gray-400 mb-1 capitalize">${d7str} · RPE ${lastRec.rpe ?? '?'}/10</p>
+                <p class="text-xs text-gray-300">${lastRec.feedback}</p>
             </div>`;
         }
     }
@@ -274,18 +276,29 @@ function openModal(iso) {
     document.getElementById('day-modal').classList.add('open');
 }
 
-function findLastSimilarRecord(currentIso, keyword) {
-    // Find the most recent record from a day whose context matches the keyword, before currentIso
-    const sorted = Object.entries(recordsDict)
-        .filter(([date, rec]) => {
-            if (date >= currentIso) return false;
-            const dayPlan = planData.find(d => d.iso === date);
-            return dayPlan && (dayPlan.context || '').toLowerCase().includes(keyword);
-        })
-        .sort((a, b) => b[0].localeCompare(a[0]));
-    if (sorted.length === 0) return null;
-    const [date, rec] = sorted[0];
-    return { date, ...rec };
+function classifySession(context) {
+    const c = (context || '').toLowerCase();
+    if (c.includes('umbral'))                              return 'umbral';
+    if (c.includes('aeróbico') || c.includes('aerobico') || c.includes('rodaje')) return 'aeróbico';
+    if (c.includes('pista') && c.includes('gimnasio'))     return 'velocidad+fuerza';
+    if (c.includes('pista'))                               return 'pista';
+    if (c.includes('compensatorio') || c.includes('flexibilidad')) return 'compensatorio';
+    if (c.includes('gimnasio') || c.includes('gym'))       return 'gimnasio';
+    if (c.includes('exterior'))                            return 'exterior';
+    return 'general';
+}
+
+function findLastRecordOfType(currentIso, sessionType) {
+    // Walk backwards through planData looking for the last logged session of same type
+    const sorted = planData
+        .filter(d => d.iso < currentIso && (d.tables.length || d.notes.length))
+        .sort((a, b) => b.iso.localeCompare(a.iso));
+    for (const d of sorted) {
+        if (classifySession(d.context) === sessionType && recordsDict[d.iso]?.feedback) {
+            return { iso: d.iso, ...recordsDict[d.iso] };
+        }
+    }
+    return null;
 }
 
 function closeModal() { document.getElementById('day-modal').classList.remove('open'); }
