@@ -42,6 +42,91 @@ def get_plan():
         plan_data = json.load(f)
     return jsonify(plan_data)
 
+# Error strings that indicate AI failed to generate proper feedback
+FAILED_FEEDBACK_MARKERS = [
+    "Error de conexión con la IA",
+    "La IA está saturada",
+    "Error:",
+    "503",
+    "UNAVAILABLE",
+    "no está configurada",
+]
+
+def feedback_is_failed(text: str) -> bool:
+    if not text:
+        return True
+    return any(marker in text for marker in FAILED_FEEDBACK_MARKERS)
+
+@app.route('/api/regenerate-feedback', methods=['POST'])
+def regenerate_feedback():
+    """Re-run AI on a saved session that has a failed/missing feedback."""
+    data = request.json
+    user_id  = data.get('user_id')
+    date_iso = data.get('date_iso')
+    if not user_id or not date_iso:
+        return jsonify({"error": "user_id and date_iso required"}), 400
+
+    rec = database.get_session(user_id, date_iso)
+    if not rec:
+        return jsonify({"error": "No session found for that date"}), 404
+
+    # Load plan for that day
+    with open('plan_data.json', 'r', encoding='utf-8') as f:
+        all_days = json.load(f)
+    plan_by_iso = {d["iso"]: d for d in all_days}
+    day = plan_by_iso.get(date_iso)
+    if not day:
+        return jsonify({"error": "Day not found in plan"}), 404
+
+    if not client:
+        return jsonify({"error": "Gemini client not configured"}), 500
+
+    # Build the same prompt structure as the bot
+    def fmt_plan(p):
+        if not p.get("tables") and not p.get("notes"):
+            return f"{p['day_name']} — Descanso absoluto."
+        t = f"{p['day_name']} · Semana {p['week']} · {p['context']}\n"
+        for table in p.get("tables", []):
+            for row in table["rows"]:
+                t += f"• {' | '.join(str(c) for c in row if c and c != '—')}\n"
+        return t
+
+    prompt = f"""Actúa como Preparador Físico de Alto Rendimiento para oposiciones AENA (doble umbral, High-Low, FNP extremo, atleta 80 kg).
+
+Sesión del {date_iso}: {day.get('context')}
+{fmt_plan(day)}
+
+Registro del atleta:
+- Estado: {rec.get('completed_status')}
+- RPE: {rec.get('rpe')}
+- Molestias: {rec.get('pain_notes')}
+- Notas: {rec.get('general_notes')}
+
+Evalúa su rendimiento y da feedback profesional. Si hay fatiga o problemas, ajusta la próxima sesión similar. Máximo 150 palabras, tono técnico y motivador."""
+
+    import time
+    last_err = None
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(model='gemini-3.6-flash', contents=prompt)
+            new_feedback = response.text
+            # Save updated feedback to DB
+            database.upsert_session(
+                user_id, date_iso,
+                rec.get('completed_status'), rec.get('rpe'),
+                rec.get('pain_notes'), rec.get('general_notes'),
+                new_feedback, rec.get('ai_adjustment', '')
+            )
+            return jsonify({"ok": True, "feedback": new_feedback})
+        except Exception as e:
+            last_err = e
+            if "503" in str(e) or "UNAVAILABLE" in str(e):
+                time.sleep(5 * (attempt + 1))
+            else:
+                break
+
+    return jsonify({"error": f"IA no disponible: {last_err}"}), 503
+
 @app.route('/api/targets', methods=['GET'])
 def get_targets():
     user_id = request.args.get('user_id')

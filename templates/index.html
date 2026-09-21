@@ -253,17 +253,31 @@ function openModal(iso) {
 
     // User record for this day
     if (rec) {
+        const failedMarkers = ['Error de conexión con la IA', 'La IA está saturada', 'Error:', '503', 'UNAVAILABLE', 'no está configurada'];
+        const feedbackFailed = !rec.feedback || failedMarkers.some(m => rec.feedback.includes(m));
+
+        const feedbackHtml = feedbackFailed
+            ? `<div class="p-2.5 bg-[#2a1010] border border-red-800 rounded-lg text-xs">
+                <p class="text-red-400 font-bold mb-1">⚠️ Feedback no generado (IA no disponible)</p>
+                <p class="text-gray-400 text-xs mb-2">Tu sesión sí está guardada. Pulsa el botón para regenerar.</p>
+                <button onclick="regenerateFeedback('${iso}')" id="regen-btn-${iso}"
+                        class="w-full py-1.5 rounded-lg bg-[#ff8a1e] text-[#1a1206] font-bold text-xs">
+                    🔄 Regenerar feedback con IA
+                </button>
+               </div>`
+            : `<div class="p-2.5 bg-[#1b2027] border border-[#ff8a1e33] rounded-lg text-xs">
+                <p class="accent font-bold mb-1">🤖 Feedback del Preparador</p>
+                <p id="feedback-text-${iso}">${rec.feedback}</p>
+               </div>`;
+
         html += `<div class="pt-4 border-t border-[#333c46]">
             <h3 class="font-bold mb-2 text-white">✅ Tu registro</h3>
-            <div class="bg-[#232a33] p-3 rounded-xl space-y-1 text-sm">
+            <div class="bg-[#232a33] p-3 rounded-xl space-y-2 text-sm">
                 <p><span class="text-gray-400">Estado:</span> ${rec.status}</p>
                 <p><span class="text-gray-400">RPE:</span> ${rec.rpe ?? 'N/A'}/10</p>
                 <p><span class="text-gray-400">Molestias:</span> ${rec.pain}</p>
                 ${rec.notes && rec.notes !== 'Ninguna' ? `<p class="italic text-gray-300 text-xs">"${rec.notes}"</p>` : ''}
-                <div class="mt-2 p-2.5 bg-[#1b2027] border border-[#ff8a1e33] rounded-lg text-xs">
-                    <p class="accent font-bold mb-1">🤖 Feedback del Preparador</p>
-                    <p>${rec.feedback || '—'}</p>
-                </div>
+                ${feedbackHtml}
             </div>
         </div>`;
     } else {
@@ -303,6 +317,38 @@ function findLastRecordOfType(currentIso, sessionType) {
 
 function closeModal() { document.getElementById('day-modal').classList.remove('open'); }
 function handleModalClick(e) { if (e.target === document.getElementById('day-modal')) closeModal(); }
+
+async function regenerateFeedback(iso) {
+    const btn = document.getElementById('regen-btn-' + iso);
+    if (!btn) return;
+    
+    btn.innerHTML = '⏳ Pensando... (puede tardar)';
+    btn.disabled = true;
+    
+    try {
+        const res = await fetch('/api/regenerate-feedback', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ user_id: userId, date_iso: iso })
+        });
+        const data = await res.json();
+        
+        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+        
+        // Update local dictionary so it persists if modal is closed and reopened
+        if (recordsDict[iso]) {
+            recordsDict[iso].feedback = data.feedback;
+        }
+        
+        // Re-open the modal to re-render it with the new feedback
+        openModal(iso);
+        
+    } catch(e) {
+        btn.innerHTML = '❌ Error. Reintentar';
+        btn.disabled = false;
+        alert('Error al regenerar: ' + e.message);
+    }
+}
 
 // ── Progress ──────────────────────────────────────────────────────────
 async function loadProgress() {
