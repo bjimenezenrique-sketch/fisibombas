@@ -133,15 +133,29 @@ async def get_ai_feedback(plan, user_data, general_notes):
         if user_data.get('image_bytes'):
             image = Image.open(io.BytesIO(user_data['image_bytes']))
             contents.append(image)
-            
-        if client:
-            response = client.models.generate_content(
-                model='gemini-3.6-flash',
-                contents=contents
-            )
-            return response.text
-        else:
+
+        if not client:
             return "Error: Cliente de Gemini no configurado."
+
+        import time
+        last_error = None
+        for attempt in range(3):
+            try:
+                response = client.models.generate_content(
+                    model='gemini-3.6-flash',
+                    contents=contents
+                )
+                return response.text
+            except Exception as inner_e:
+                last_error = inner_e
+                if "503" in str(inner_e) or "UNAVAILABLE" in str(inner_e):
+                    wait = 5 * (attempt + 1)  # 5s, 10s, 15s
+                    print(f"Gemini 503, reintentando en {wait}s (intento {attempt+1}/3)...")
+                    time.sleep(wait)
+                else:
+                    raise  # not a 503, don't retry
+
+        return f"La IA está saturada en este momento. Tu sesión se ha guardado correctamente. Inténtalo de nuevo en unos minutos con /hoy."
     except Exception as e:
         import traceback
         print(f"Error generating AI feedback: {e}\n{traceback.format_exc()}")
