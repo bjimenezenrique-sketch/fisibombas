@@ -106,9 +106,12 @@ Evalúa su rendimiento y da feedback profesional. Si hay fatiga o problemas, aju
 
     import time
     last_err = None
-    for attempt in range(3):
+    # Try different models to bypass saturation
+    fallback_models = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.0-flash']
+    
+    for model_name in fallback_models:
         try:
-            response = client.models.generate_content(model='gemini-3.6-flash', contents=prompt)
+            response = client.models.generate_content(model=model_name, contents=prompt)
             new_feedback = response.text
             # Save updated feedback to DB
             database.upsert_session(
@@ -121,9 +124,11 @@ Evalúa su rendimiento y da feedback profesional. Si hay fatiga o problemas, aju
         except Exception as e:
             last_err = e
             if "503" in str(e) or "UNAVAILABLE" in str(e):
-                time.sleep(5 * (attempt + 1))
+                print(f"Model {model_name} saturated, trying next...")
+                time.sleep(1) # short wait before fallback
+                continue
             else:
-                break
+                break # break on non-503 errors
 
     return jsonify({"error": f"IA no disponible: {last_err}"}), 503
 

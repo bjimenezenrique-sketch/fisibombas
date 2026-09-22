@@ -139,23 +139,25 @@ async def get_ai_feedback(plan, user_data, general_notes):
 
         import time
         last_error = None
-        for attempt in range(3):
+        fallback_models = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.0-flash']
+        
+        for model_name in fallback_models:
             try:
                 response = client.models.generate_content(
-                    model='gemini-3.6-flash',
+                    model=model_name,
                     contents=contents
                 )
                 return response.text
             except Exception as inner_e:
                 last_error = inner_e
                 if "503" in str(inner_e) or "UNAVAILABLE" in str(inner_e):
-                    wait = 5 * (attempt + 1)  # 5s, 10s, 15s
-                    print(f"Gemini 503, reintentando en {wait}s (intento {attempt+1}/3)...")
-                    time.sleep(wait)
+                    print(f"Gemini 503 en {model_name}, probando siguiente modelo...")
+                    time.sleep(1)
+                    continue
                 else:
                     raise  # not a 503, don't retry
 
-        return f"La IA está saturada en este momento. Tu sesión se ha guardado correctamente. Inténtalo de nuevo en unos minutos con /hoy."
+        return f"La IA está saturada en este momento. Tu sesión se ha guardado correctamente. Inténtalo de nuevo en unos minutos en la Mini App usando el botón de Regenerar."
     except Exception as e:
         import traceback
         print(f"Error generating AI feedback: {e}\n{traceback.format_exc()}")
